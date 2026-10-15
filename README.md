@@ -2,7 +2,7 @@
 
 This project studies regional hospital-to-skilled nursing facility (SNF) placement coordination in New York City. A Capacity Command Network (CCN) shares regional demand and capacity information to support joint placement decisions.
 
-The current implementation provides two deterministic experiments: **Phase 1.1 acceptance workflow timing** and **Phase 1.2 static allocation**. Synthetic examples make their assumptions and outcomes easy to inspect. The experiments use Python 3.10+ and the standard library.
+The current implementation provides two deterministic experiments: **Phase 1.1 acceptance workflow timing** and **Phase 1.2 static allocation**, plus **Phase 2 clinical attribute matching**. Synthetic examples make their assumptions and outcomes easy to inspect. The experiments use Python 3.10+ and the standard library.
 
 ## Run the experiments and report
 
@@ -12,6 +12,7 @@ Run these commands from the project directory:
 python phase1_workflow.py
 python phase1.py
 python phase1_report.py
+python phase2.py
 ```
 
 The report command writes `results/phase1/phase1-report.html` and `results/phase1/phase1-results.json`. Open the HTML file in a browser for the assumptions, outcome tables and patient timelines. It works offline and can be printed. The JSON file includes the exact scenario inputs and full results.
@@ -141,7 +142,28 @@ Both strategies place two patients in all three examples. With one bed per SNF a
 
 Results include assignments, unplaced patient IDs, placed and unplaced counts, total travel time, and mean travel time among placed patients. The mean is `null` when nobody is placed.
 
+## Phase 2: clinical attribute matching
+
+Phase 2 models room-level inventory rather than treating an SNF's advertised bed count
+as universally compatible. A bed has a room gender (`male`, `female`, or `any`) and
+zero or more capabilities. A patient has a gender and hard required capabilities.
+The ready timestamp is **T1** and the acceptance timestamp is **T2**; the primary
+objective is the sum of `T2 - T1` for every placed patient.
+
+`scenarios/phase2_examples.json` contains:
+
+| Scenario | Baseline | CCN |
+| --- | --- | --- |
+| `ghost_bed_gender_mismatch` | Tries the first visible bed, receives a rejection after 120 minutes, then retries | Filters the incompatible room and accepts immediately |
+| `hard_dependency_bariatric_reservation` | Uses the only bariatric bed for a standard patient, leaving the bariatric patient blocked | Uses the standard bed for the standard patient and reserves the bariatric bed |
+
 ## Interpreting the results
+The baseline intentionally represents sequential referral/rejection work. The CCN
+strategy filters incompatible beds and avoids consuming a bed that is the only
+feasible option for a remaining hard-constraint patient. An unplaced patient makes
+the objective value `null`, because a finite `T2` does not exist; the result still
+reports the placed-patient delay and blocked patient IDs. Travel is reported as a
+secondary metric and does not contribute to `T2 - T1`.
 
 During a shortage, global allocation may leave a different set of patients unplaced. Always compare placed counts and unplaced patient IDs alongside mean travel. A lower average for placed patients does not establish fairness, patient priority or reduced waiting for the original population.
 
