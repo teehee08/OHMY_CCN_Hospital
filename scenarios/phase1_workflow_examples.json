@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "name": "equal_processing",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X"}, {"id": "Y"}],
+      "patients": [
+        {"id": "patient_A", "hospital_id": "A", "ready_time_minutes": 0},
+        {"id": "patient_B", "hospital_id": "B", "ready_time_minutes": 60}
+      ],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}},
+      "workflows": {
+        "manual": {"contact_minutes": 10, "review_minutes": 15, "confirmation_minutes": 5},
+        "digital": {"contact_minutes": 10, "review_minutes": 15, "confirmation_minutes": 5}
+      }
+    },
+    {
+      "name": "shorter_digital_processing",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X"}, {"id": "Y"}],
+      "patients": [
+        {"id": "patient_A", "hospital_id": "A", "ready_time_minutes": 0},
+        {"id": "patient_B", "hospital_id": "B", "ready_time_minutes": 60}
+      ],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}},
+      "workflows": {
+        "manual": {"contact_minutes": 30, "review_minutes": 60, "confirmation_minutes": 30},
+        "digital": {"contact_minutes": 2, "review_minutes": 5, "confirmation_minutes": 3}
+      }
+    },
+    {
+      "name": "longer_digital_processing",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X"}, {"id": "Y"}],
+      "patients": [
+        {"id": "patient_A", "hospital_id": "A", "ready_time_minutes": 0},
+        {"id": "patient_B", "hospital_id": "B", "ready_time_minutes": 60}
+      ],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}},
+      "workflows": {
+        "manual": {"contact_minutes": 5, "review_minutes": 10, "confirmation_minutes": 5},
+        "digital": {"contact_minutes": 10, "review_minutes": 15, "confirmation_minutes": 5}
+      }
+    }
+  ]
+}

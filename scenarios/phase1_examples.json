@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "name": "ample_beds_a_first",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X", "available_beds": 2}, {"id": "Y", "available_beds": 2}],
+      "patients": [{"id": "patient_A", "hospital_id": "A"}, {"id": "patient_B", "hospital_id": "B"}],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}}
+    },
+    {
+      "name": "limited_beds_a_first",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X", "available_beds": 1}, {"id": "Y", "available_beds": 1}],
+      "patients": [{"id": "patient_A", "hospital_id": "A"}, {"id": "patient_B", "hospital_id": "B"}],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}}
+    },
+    {
+      "name": "limited_beds_b_first",
+      "hospitals": [{"id": "A"}, {"id": "B"}],
+      "snfs": [{"id": "X", "available_beds": 1}, {"id": "Y", "available_beds": 1}],
+      "patients": [{"id": "patient_B", "hospital_id": "B"}, {"id": "patient_A", "hospital_id": "A"}],
+      "travel_time_minutes": {"A": {"X": 4, "Y": 5}, "B": {"X": 5, "Y": 14}}
+    }
+  ]
+}
