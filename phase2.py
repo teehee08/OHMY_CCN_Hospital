@@ -85,6 +85,7 @@ class Scenario:
         snfs = tuple(row["id"] for row in snf_rows)
         hospital_ids, snf_ids = set(hospitals), set(snfs)
         beds: list[Bed] = []
+        room_genders: dict[tuple[str, str], str] = {}
         for row in bed_rows:
             if row.get("snf_id") not in snf_ids:
                 raise ValueError(f"Bed {row['id']}: unknown snf_id")
@@ -94,6 +95,12 @@ class Scenario:
             room_id = row.get("room_id")
             if not isinstance(room_id, str) or not room_id.strip():
                 raise ValueError(f"Bed {row['id']}: room_id must be a nonempty string")
+            room_key = (row["snf_id"], room_id)
+            if room_key in room_genders and room_genders[room_key] != room_gender:
+                raise ValueError(
+                    f"Room {room_id} in SNF {row['snf_id']}: conflicting room_gender values"
+                )
+            room_genders[room_key] = room_gender
             beds.append(
                 Bed(
                     row["id"],
@@ -264,7 +271,7 @@ def baseline_match(scenario: Scenario) -> MatchingResult:
 
 
 def ccn_match(scenario: Scenario) -> MatchingResult:
-    """Filter incompatible beds and preserve scarce beds for hard dependencies."""
+    """Filter incompatible beds and prefer preserving feasible patients' options."""
     available = list(scenario.beds)
     assignments: list[Assignment] = []
     unplaced: list[str] = []
@@ -273,14 +280,18 @@ def ccn_match(scenario: Scenario) -> MatchingResult:
         if not candidates:
             unplaced.append(patient.id)
             continue
-        remaining_patients = scenario.patients[index + 1 :]
+        # Preserve options only for patients who can use the current inventory.
+        remaining_patients = [
+            other
+            for other in scenario.patients[index + 1 :]
+            if any(_compatible(other, item) for item in available)
+        ]
         safe: list[Bed] = []
         for bed in candidates:
             remaining_beds = [item for item in available if item.id != bed.id]
             if all(
                 any(_compatible(other, item) for item in remaining_beds)
                 for other in remaining_patients
-                if other.required_capabilities
             ):
                 safe.append(bed)
         if not safe:

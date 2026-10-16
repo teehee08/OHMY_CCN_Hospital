@@ -147,6 +147,8 @@ Results include assignments, unplaced patient IDs, placed and unplaced counts, t
 Phase 2 models room-level inventory rather than treating an SNF's advertised bed count
 as universally compatible. A bed has a room gender (`male`, `female`, or `any`) and
 zero or more capabilities. A patient has a gender and hard required capabilities.
+All beds in the same `(snf_id, room_id)` must have the same room gender. Room IDs
+may repeat across SNFs; `any` is a fixed input category for this static snapshot.
 The ready timestamp is **T1** and the acceptance timestamp is **T2**; the primary
 objective is the sum of `T2 - T1` for every placed patient.
 
@@ -159,8 +161,17 @@ objective is the sum of `T2 - T1` for every placed patient.
 
 ## Interpreting the results
 The baseline intentionally represents sequential referral/rejection work. The CCN
-strategy filters incompatible beds and avoids consuming a bed that is the only
-feasible option for a remaining hard-constraint patient. An unplaced patient makes
+strategy filters incompatible beds and prefers beds that preserve at least one
+feasible option for every remaining patient, considering both gender and capabilities.
+Patients who already have no compatible bed do not affect this reservation check.
+Patients are processed in input order. This reservation heuristic checks each
+remaining patient's options individually; it does not guarantee a maximum matching
+when several patients compete for the same beds. If every candidate removes
+someone's last option, the current patient still receives a compatible bed using
+the normal selection priorities: fewer capabilities for patients without required
+capabilities, then travel time and input order. Patients with required capabilities
+use travel time and input order.
+An unplaced patient makes
 the objective value `null`, because a finite `T2` does not exist; the result still
 reports the placed-patient delay and blocked patient IDs. Travel is reported as a
 secondary metric and does not contribute to `T2 - T1`.
