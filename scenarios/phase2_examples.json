@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "name": "ghost_bed_gender_mismatch",
+      "hospitals": [{"id": "hospital_A"}],
+      "snfs": [{"id": "snf_X"}],
+      "beds": [
+        {
+          "id": "room_101_bed_male",
+          "snf_id": "snf_X",
+          "room_id": "room_101",
+          "room_gender": "male",
+          "capabilities": []
+        },
+        {
+          "id": "room_102_bed_female",
+          "snf_id": "snf_X",
+          "room_id": "room_102",
+          "room_gender": "female",
+          "capabilities": []
+        }
+      ],
+      "patients": [
+        {
+          "id": "female_patient",
+          "hospital_id": "hospital_A",
+          "gender": "female",
+          "required_capabilities": [],
+          "ready_time_minutes": 0
+        }
+      ],
+      "travel_time_minutes": {"hospital_A": {"snf_X": 10}},
+      "rejection_delay_minutes": 120,
+      "acceptance_delay_minutes": 0
+    },
+    {
+      "name": "hard_dependency_bariatric_reservation",
+      "hospitals": [{"id": "hospital_A"}],
+      "snfs": [{"id": "snf_X"}],
+      "beds": [
+        {
+          "id": "bariatric_bed",
+          "snf_id": "snf_X",
+          "room_id": "room_bariatric",
+          "room_gender": "any",
+          "capabilities": ["bariatric"]
+        },
+        {
+          "id": "standard_bed",
+          "snf_id": "snf_X",
+          "room_id": "room_standard",
+          "room_gender": "any",
+          "capabilities": []
+        }
+      ],
+      "patients": [
+        {
+          "id": "standard_patient",
+          "hospital_id": "hospital_A",
+          "gender": "female",
+          "required_capabilities": [],
+          "ready_time_minutes": 0
+        },
+        {
+          "id": "bariatric_patient",
+          "hospital_id": "hospital_A",
+          "gender": "male",
+          "required_capabilities": ["bariatric"],
+          "ready_time_minutes": 0
+        }
+      ],
+      "travel_time_minutes": {"hospital_A": {"snf_X": 10}},
+      "rejection_delay_minutes": 120,
+      "acceptance_delay_minutes": 0
+    }
+  ]
+}
