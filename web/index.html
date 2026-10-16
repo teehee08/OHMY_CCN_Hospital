@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OHMY · Placement Scenario Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="OHMY Scenario Lab home"><span class="brand-mark">O</span><strong>OHMY</strong><span class="brand-divider"></span><span>Research workspace</span></a>
+    <span class="environment"><span class="status-dot"></span>Local scenario lab</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">HOSPITAL → SKILLED NURSING FACILITY</p><h1>Placement scenario lab<span>.</span></h1><p class="lede">Build a scenario. Compare decisions. Understand where coordination makes a difference.</p></div>
+      <div class="intro-note"><span class="note-index">01—03</span><p>Three experiments.<br>One editable workspace.</p></div>
+    </section>
+    <nav class="mode-switch" aria-label="Experiment">
+      <button type="button" data-mode="workflow"><span>01</span><strong>Workflow timing</strong><small>Phase 1.1 · unlimited beds</small></button>
+      <button type="button" data-mode="allocation" aria-pressed="true"><span>02</span><strong>Bed allocation</strong><small>Phase 1.2 · finite capacity</small></button>
+      <button type="button" data-mode="clinical"><span>03</span><strong>Clinical matching</strong><small>Phase 2 · compatible beds</small></button>
+    </nav>
+    <section class="experiment-brief" aria-live="polite"><div><span class="section-kicker">THE COMPARISON</span><p id="mode-description"></p></div><button type="button" id="assumption-toggle" aria-expanded="false" aria-controls="model-assumptions">Model assumptions <span>↗</span></button></section>
+    <div id="model-assumptions" class="assumptions" hidden></div>
+    <div id="startup-error" class="error-message" role="alert" hidden></div>
+    <section class="workspace">
+      <div class="scenario-column">
+        <div class="column-heading"><div><span class="section-kicker">01 / CONFIGURE</span><h2>Your scenario</h2></div><div class="heading-actions"><span id="scenario-count" class="count-tag"></span><button type="submit" form="scenario-form" id="quick-run" class="button primary">Run →</button></div></div>
+        <div class="scenario-toolbar"><label for="example-select" class="sr-only">Example scenario</label><select id="example-select"></select><button type="button" class="button secondary" id="load-example">Load example</button></div>
+        <div class="file-actions"><button type="button" id="import-button">↑ Import JSON</button><button type="button" id="export-scenario">↓ Export scenario</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>
+        <p id="editor-message" class="editor-message" role="status"></p>
+        <div id="run-error" class="error-message" role="alert" hidden></div>
+        <form id="scenario-form"><div id="scenario-editor"></div><div class="run-area"><p>Both strategies receive the same scenario inputs.</p><button class="button primary" id="run-button" type="submit"><span>Run comparison</span><span aria-hidden="true">→</span></button><p class="limits">Up to 12 hospitals, 12 SNFs, 50 patients and 100 beds.</p></div></form>
+      </div>
+      <section class="results-column" aria-label="Comparison results">
+        <div class="column-heading"><div><span class="section-kicker">02 / COMPARE</span><h2>Decisions & outcomes</h2></div><span id="result-status" class="result-status">Ready to run</span></div>
+        <div id="stale-message" class="stale-message" role="status" hidden>Inputs changed. Run comparison to update these results.</div>
+        <div id="results" aria-live="polite"><div class="empty-state"><span class="empty-glyph" aria-hidden="true">⇄</span><h3>A shared scenario.<br>Two ways to place.</h3><p>Start with an example or edit the inputs,<br>then run a comparison to see the difference.</p><div class="empty-legend"><span class="baseline-dot"></span>Baseline<span class="ccn-dot"></span>CCN approach</div></div></div>
+        <button type="button" id="export-results" class="button secondary export-results" hidden>↓ Export run & results</button>
+      </section>
+    </section>
+    <footer><span>OHMY / Hospital CCN</span><p>Synthetic experiments for understanding placement mechanisms. Timing and compatibility are supplied scenario assumptions.</p></footer>
+  </main>
+  <dialog id="export-dialog"><h2 id="export-title">Export JSON</h2><p>Save this JSON to reproduce or share the scenario.</p><label for="export-json" class="sr-only">Exported JSON</label><textarea id="export-json" readonly spellcheck="false"></textarea><p id="export-message" role="status"></p><div class="dialog-actions"><button type="button" id="close-export" class="button secondary">Close</button><button type="button" id="copy-export" class="button secondary">Copy JSON</button><button type="button" id="download-export" class="button primary">Download JSON</button></div></dialog>
+  <dialog id="import-dialog"><form method="dialog"><h2>Choose a scenario</h2><p>This file contains several scenarios.</p><label for="import-choice">Scenario</label><select id="import-choice"></select><div class="dialog-actions"><button value="cancel" class="button secondary">Cancel</button><button value="load" class="button primary">Load scenario</button></div></form></dialog>
+</body>
+</html>
