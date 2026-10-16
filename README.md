@@ -6,6 +6,93 @@ The current implementation provides two deterministic experiments: **Phase 1.1 a
 
 ## Run the experiments and report
 
+### Interactive scenario lab
+
+Get the latest `main` branch from GitHub. Either choose **Code → Download ZIP**
+and extract the entire archive, or clone the repository:
+
+```powershell
+git clone https://github.com/teehee08/OHMY_CCN_Hospital.git
+cd OHMY_CCN_Hospital
+```
+
+Install Python 3.10 or newer and make its `python` command available in your
+terminal. Check the installation with `python --version`. The lab uses the
+standard library, so the interface is ready to run after Python is installed.
+
+Start the local browser interface with Python 3.10+:
+
+```powershell
+python scenario_lab.py --open
+```
+
+On Windows, double-click `Start Scenario Lab.cmd`. Keep its terminal open while
+using the lab. The default address is `http://127.0.0.1:8765/`; use `--port 8766`
+to choose another port. Stop the server with Ctrl+C.
+
+On macOS or Linux, run `python3 scenario_lab.py --open` from the extracted project
+directory. If the browser does not open automatically, visit the address printed
+in the terminal. The server runs on the same computer as the browser. Start it
+through the launcher or Python command so the page can communicate with the models.
+
+The English interface provides three experiments using the existing Python models:
+
+| Experiment | Baseline | CCN approach | Editable inputs |
+| --- | --- | --- | --- |
+| Workflow timing | Manual workflow | Digital workflow | Hospitals, SNFs, patients, readiness, travel and processing durations |
+| Bed allocation | Greedy nearest available | Exact global allocation | Hospitals, SNFs, capacities, patients, order and travel |
+| Clinical matching | Sequential referral | Compatibility filtering and reservation heuristic | Hospitals, SNFs, individual beds, room gender, capabilities, patients, order and rejection/acceptance delays |
+
+Load a bundled example or create your own scenario, then select **Run comparison**.
+Results include placed counts, wait and travel summaries, assignment flow diagrams,
+patient decisions, and acceptance timelines for the timing experiments. The flow
+diagrams are schematic, and travel times are supplied inputs. The allocation
+experiment reports acceptance wait as unavailable because it does not model it.
+
+Each experiment retains its inputs while switching experiment tabs on the page.
+Reloading the page restores the bundled examples; export custom scenarios to
+retain them between sessions. Editing inputs marks
+previous results as out of date until another run completes. **Export scenario**
+saves a versioned JSON input that can be imported again or used by the corresponding
+experiment runner. **Export run & results** includes the exact last-run inputs,
+both results, comparison values and model assumptions. Imports can also load a
+scenario from a bundled multi-scenario JSON file.
+
+The lab supports up to 12 hospitals, 12 SNFs, 50 patients and 100 finite beds per
+scenario. Workflow timing retains unlimited capacity. Mean wait and total travel
+describe placed patients; travel reductions are shown only when both strategies
+place the same patient set. For clinical matching, the full-population delay
+objective is undefined if anyone is unplaced. The interface compares the three
+existing experiments separately.
+
+The local server and browser assets use the Python standard library and native
+browser features. No additional packages or build step are needed.
+
+### Suggested demonstration
+
+1. Open **Bed allocation**, load **Limited Beds A First**, and run the comparison.
+   Both strategies place two patients; total travel is 18 minutes for baseline and
+   10 for global allocation. Move the second patient earlier and run again to show
+   how baseline allocation depends on order.
+2. Open **Clinical matching**, load **Hard Dependency Bariatric Reservation**, and
+   run. Baseline places one patient; CCN places both by preserving the bariatric
+   bed. Total travel is 10 versus 20 minutes because CCN transports an additional
+   patient. Each placed patient travels 10 minutes.
+3. Open **Workflow timing** to examine how supplied contact, review and confirmation
+   durations determine acceptance wait. **Shorter Digital Processing** assumes
+   120 versus 10 minutes of processing; the difference is conditional on those
+   inputs. The routes remain the same under unlimited capacity.
+4. Edit an input, select **Run comparison**, and inspect patient-level decisions.
+   Export the scenario for another session, and export the run for its exact
+   inputs, outcomes and assumptions. Export dialogs offer JSON copying and download.
+
+Compare placed counts and unplaced IDs alongside wait and travel. Summed travel is
+patient travel time, rather than elapsed scenario duration; mean acceptance wait
+only includes placed patients. Clinical matching uses the supplied patient list
+in input order, with readiness timestamps rather than time-driven arrival events.
+
+### Command-line experiments
+
 Run these commands from the project directory:
 
 ```powershell
