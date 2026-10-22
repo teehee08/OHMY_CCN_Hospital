@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OHMY · Dynamic Placement Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/dynamic.css">
+  <script src="/dynamic.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="OHMY Scenario Lab home"><span class="brand-mark">O</span><strong>OHMY</strong><span class="brand-divider"></span><span>Research workspace</span></a>
+    <a class="back-link" href="/">← Other experiments</a>
+  </header>
+  <main>
+    <section class="intro dynamic-intro">
+      <div><p class="eyebrow">HOSPITAL → SKILLED NURSING FACILITY · DYNAMIC SIMULATION</p><h1>Every placement has a timeline<span>.</span></h1><p class="lede">Five patients. Shared beds. See what changes when coordination can look ahead.</p></div>
+      <span class="hour-badge"><strong>h</strong>Hours from Monday 00:00</span>
+    </section>
+    <section class="dynamic-brief" aria-label="Strategy definitions">
+      <div><span class="baseline-dot"></span><div><strong>Baseline</strong><p>Greedy placement when patients become ready. Input order breaks ties; listed SNF preference comes first.</p></div></div>
+      <div><span class="ccn-dot"></span><div><strong>CCN · known future demand</strong><p>Plans across both hospitals using all supplied ready times and lengths of stay to reduce total waiting.</p></div></div>
+    </section>
+    <p class="assumption-line">Synthetic assumptions: beds start empty; admission equals hospital departure; no review, transport or cleaning delay. Planned times are treated as exact.</p>
+    <div id="dynamic-startup-error" class="error-message" role="alert" hidden></div>
+    <section class="dynamic-workspace">
+      <section class="dynamic-config" aria-label="Scenario configuration">
+        <div class="column-heading"><div><span class="section-kicker">01 / CONFIGURE</span><h2>Your scenario</h2></div><button type="submit" form="dynamic-form" id="dynamic-quick-run" class="button primary">Run →</button></div>
+        <div class="scenario-toolbar"><label class="sr-only" for="dynamic-example">Example scenario</label><select id="dynamic-example"></select><button class="button secondary" id="dynamic-load" type="button">Load example</button></div>
+        <div class="file-actions"><button id="dynamic-import" type="button">↑ Import JSON</button><button id="dynamic-export" type="button">↓ Export scenario</button><input id="dynamic-import-file" type="file" accept=".json,application/json" hidden></div>
+        <p id="dynamic-editor-message" class="editor-message" role="status"></p>
+        <div id="dynamic-run-error" class="error-message" role="alert" hidden></div>
+        <form id="dynamic-form"><div id="dynamic-editor"></div><div class="run-area"><p>Identical demand and capacity. Two placement strategies.</p><button id="dynamic-run" type="submit" class="button primary"><span>Run dynamic comparison</span><span aria-hidden="true">→</span></button><p id="dynamic-limits" class="limits">Up to 50 patients, 100 beds and 12 of each facility type.</p></div></form>
+      </section>
+      <section class="dynamic-results" aria-label="Dynamic comparison results">
+        <div class="column-heading"><div><span class="section-kicker">02 / EXPLORE</span><h2>Demand over time</h2></div><span id="dynamic-result-status" class="result-status">Ready to run</span></div>
+        <div id="dynamic-stale" class="stale-message" role="status" hidden>Inputs changed. These results and playback still show the last run.</div>
+        <div id="dynamic-empty" class="empty-state"><span class="empty-glyph" aria-hidden="true">◷</span><h3>One timeline.<br>A different use of capacity.</h3><p>Set ready times, eligible SNFs and stays.<br>Run the model, then move through the hours.</p><div class="empty-legend"><span class="baseline-dot"></span>Baseline<span class="ccn-dot"></span>CCN</div></div>
+        <div id="dynamic-output" hidden>
+          <div class="run-heading"><div><h3 id="dynamic-run-name"></h3><p id="dynamic-run-subtitle"></p></div><button type="button" id="dynamic-export-run" class="button secondary">↓ Export run</button></div>
+          <div id="dynamic-solver-note" class="solver-note" role="status" hidden></div>
+          <div id="dynamic-metrics" class="dynamic-metrics"></div>
+          <p class="small-note metric-explainer">Hospital bed-hours below count only this cohort’s waiting after ready time, inside the observation window. They are not whole-hospital occupancy.</p>
+          <section class="playback-card" aria-label="Simulation playback">
+            <div class="playback-title"><div><span class="section-kicker">INSPECT A MOMENT</span><h3 id="dynamic-clock">Monday 00:00</h3></div><div class="playback-actions"><button type="button" class="button secondary" id="dynamic-previous" aria-label="Previous event">←</button><button type="button" class="button primary" id="dynamic-play" aria-pressed="false">Play</button><button type="button" class="button secondary" id="dynamic-next" aria-label="Next event">→</button></div></div>
+            <label for="dynamic-time" class="sr-only">Simulation hour</label><input id="dynamic-time" type="range" min="0" max="72" step="0.25" value="0"><div class="range-labels"><span>Monday 00:00 · 0 h</span><span id="dynamic-range-end"></span></div>
+            <div id="dynamic-live-state" class="live-state" aria-live="polite"></div>
+            <div id="dynamic-bed-grid" class="occupancy-grid"></div>
+          </section>
+          <section class="timeline-section"><div class="results-section-heading"><h3>Each patient’s journey</h3><span>Ready → waiting → SNF stay</span></div><div class="journey-legend"><span><i class="wait-key"></i>Hospital waiting</span><span><i class="baseline-key"></i>Baseline SNF stay</span><span><i class="ccn-key"></i>CCN SNF stay</span></div><p class="small-note">Bars stop at the observation boundary. Placement table also shows plans beyond it.</p><div id="dynamic-journeys"></div></section>
+          <details class="results-details" open><summary>Patient placements & waiting</summary><div id="dynamic-placement-table" class="result-table-wrap"></div></details>
+          <details class="results-details"><summary>Chronological event log</summary><div class="log-controls"><label for="dynamic-log-strategy">Strategy</label><select id="dynamic-log-strategy"><option value="both">Both strategies</option><option value="baseline">Baseline</option><option value="ccn">CCN</option></select></div><div id="dynamic-events" class="result-table-wrap"></div></details>
+          <details class="results-details"><summary>Run assumptions</summary><ul id="dynamic-assumptions" class="small-note"></ul></details>
+        </div>
+      </section>
+    </section>
+    <footer><span>OHMY / Hospital CCN</span><p>Research simulation. All ready times, compatibility rules and stays are supplied scenario inputs.</p></footer>
+  </main>
+  <dialog id="dynamic-export-dialog"><h2 id="dynamic-export-title">Export JSON</h2><p id="dynamic-export-description">Save these inputs to reproduce the scenario.</p><label for="dynamic-export-json" class="sr-only">Export JSON</label><textarea id="dynamic-export-json" spellcheck="false" readonly></textarea><p id="dynamic-export-message" role="status"></p><div class="dialog-actions"><button type="button" id="dynamic-export-close" class="button secondary">Close</button><button type="button" id="dynamic-export-copy" class="button secondary">Copy</button><button type="button" id="dynamic-export-download" class="button primary">Download JSON</button></div></dialog>
+</body>
+</html>

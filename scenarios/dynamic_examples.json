@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "schema_version": 1,
+      "name": "Two hospitals · Monday to Wednesday",
+      "horizon_hours": 72,
+      "hospitals": [{"id": "Hospital_A"}, {"id": "Hospital_B"}],
+      "snfs": [{"id": "SNF1"}, {"id": "SNF2"}, {"id": "SNF3"}],
+      "beds": [
+        {"id": "S1_F", "snf_id": "SNF1", "gender": "female"},
+        {"id": "S1_M", "snf_id": "SNF1", "gender": "male"},
+        {"id": "S2_ANY", "snf_id": "SNF2", "gender": "any"},
+        {"id": "S3_F", "snf_id": "SNF3", "gender": "female"},
+        {"id": "S3_M", "snf_id": "SNF3", "gender": "male"}
+      ],
+      "patients": [
+        {"id": "P1", "hospital_id": "Hospital_A", "gender": "female", "ready_hour": 10, "length_of_stay_hours": 24, "eligible_snf_ids": ["SNF2", "SNF1"]},
+        {"id": "P2", "hospital_id": "Hospital_B", "gender": "male", "ready_hour": 10, "length_of_stay_hours": 48, "eligible_snf_ids": ["SNF2"]},
+        {"id": "P3", "hospital_id": "Hospital_A", "gender": "male", "ready_hour": 15, "length_of_stay_hours": 48, "eligible_snf_ids": ["SNF1", "SNF3"]},
+        {"id": "P4", "hospital_id": "Hospital_B", "gender": "female", "ready_hour": 33, "length_of_stay_hours": 24, "eligible_snf_ids": ["SNF2", "SNF3"]},
+        {"id": "P5", "hospital_id": "Hospital_A", "gender": "male", "ready_hour": 35, "length_of_stay_hours": 24, "eligible_snf_ids": ["SNF1"]}
+      ]
+    }
+  ]
+}

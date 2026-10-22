@@ -17,6 +17,7 @@ import webbrowser
 import phase1
 import phase1_workflow
 import phase2
+import dynamic_model
 
 
 ROOT = Path(__file__).resolve().parent
@@ -35,6 +36,10 @@ STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+    "/dynamic": ("dynamic.html", "text/html; charset=utf-8"),
+    "/dynamic/": ("dynamic.html", "text/html; charset=utf-8"),
+    "/dynamic.js": ("dynamic.js", "text/javascript; charset=utf-8"),
+    "/dynamic.css": ("dynamic.css", "text/css; charset=utf-8"),
 }
 ASSUMPTIONS = {
     "workflow": [
@@ -264,6 +269,11 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
                 self._json(200, examples(), head=head)
             except (OSError, ValueError, KeyError):
                 self._error(500, "The example scenarios could not be loaded", head=head)
+        elif path == "/api/dynamic/examples":
+            try:
+                self._json(200, dynamic_model.examples(), head=head)
+            except (OSError, ValueError, KeyError):
+                self._error(500, "The dynamic examples could not be loaded", head=head)
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             try:
@@ -284,7 +294,8 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not self._same_origin():
             return
-        if self.path.partition("?")[0] != "/api/run":
+        path = self.path.partition("?")[0]
+        if path not in ("/api/run", "/api/dynamic/run"):
             self._error(404, "Route not found")
             return
         if len(self.headers.get_all("Content-Type", [])) != 1 or self.headers.get_content_type() != "application/json":
@@ -309,7 +320,11 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
             payload = json.loads(body.decode("utf-8"), parse_constant=_reject_constant)
             if not isinstance(payload, dict):
                 raise ValueError("Request body must be an object")
-            response = run_experiment(payload.get("mode"), payload.get("scenario"))
+            if path == "/api/dynamic/run":
+                _validate_json(payload.get("scenario"))
+                response = dynamic_model.compare(payload.get("scenario"))
+            else:
+                response = run_experiment(payload.get("mode"), payload.get("scenario"))
         except (UnicodeError, ValueError, TypeError, OverflowError, RecursionError) as error:
             message = str(error) if isinstance(error, ValueError) and not isinstance(error, json.JSONDecodeError) else "Invalid JSON request or scenario"
             self._error(400, message)

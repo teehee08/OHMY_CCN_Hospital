@@ -2,7 +2,7 @@
 
 This project studies regional hospital-to-skilled nursing facility (SNF) placement coordination in New York City. A Capacity Command Network (CCN) shares regional demand and capacity information to support joint placement decisions.
 
-The current implementation provides two deterministic experiments: **Phase 1.1 acceptance workflow timing** and **Phase 1.2 static allocation**, plus **Phase 2 clinical attribute matching**. Synthetic examples make their assumptions and outcomes easy to inspect. The experiments use Python 3.10+ and the standard library.
+The implementation provides **Phase 1.1 acceptance workflow timing**, **Phase 1.2 static allocation**, **Phase 2 clinical attribute matching**, and an **hourly dynamic placement simulation**. Synthetic examples make their assumptions and outcomes easy to inspect. The experiments use Python 3.10+ and the standard library.
 
 ## Run the experiments and report
 
@@ -67,6 +67,79 @@ existing experiments separately.
 
 The local server and browser assets use the Python standard library and native
 browser features. No additional packages or build step are needed.
+
+### Dynamic placement: Monday to Wednesday
+
+Open **Dynamic placement** from the lab homepage, or visit
+`http://127.0.0.1:8765/dynamic` after starting the same server. Edit hospitals,
+SNFs, individual beds and their gender restrictions, patient gender, ready hour,
+SNF stay duration, ordered eligible SNFs, and observation horizon. Add or remove
+patients and beds, run the comparison, then scrub or play the clock to inspect
+hospital waiting and actual SNF occupancy. Patient journeys, placement times,
+waiting, and event logs are shown for both strategies. A changed draft is marked
+as stale until rerun. The dynamic page restores the last draft locally;
+**Export scenario** saves inputs, while **Export run** saves the exact submitted
+inputs and both results, even after subsequent draft edits.
+
+The dynamic engine is `dynamic_model.py`; it is separate from the three existing
+experiments and leaves their behavior intact. Its rules are:
+
+- **Baseline:** only ready patients enter the queue. Process earliest ready time,
+  with patient input order breaking ties, and use the first free compatible bed
+  in the patient's ordered SNF list. Skip a blocked patient so others can enter
+  different compatible beds. It has no knowledge of future demand or departures
+  from either hospital.
+- **CCN:** knows every supplied patient's future readiness, eligibility and stay
+  exactly, and jointly schedules bed use to minimize eventual total waiting for
+  patients with compatible beds. Structurally impossible patients are reported
+  separately and still accumulate observed waiting to the horizon.
+  A constrained-first heuristic and the baseline provide feasible plans; bounded
+  branch-and-bound searches for improvements. Zero waiting proves optimality.
+  Nonzero cases may reach a 30,000-node or 2-second search budget; those results
+  explicitly say **search limit reached**, and are not claimed globally optimal.
+- All beds start empty. Admission, confirmation and hospital departure occur at
+  the same instant. No referral, authorization, transport or cleaning delay is
+  added. A bed releases at **actual admission + SNF stay**, and can be reused
+  at that same hour. Bed gender is fixed, with `any` accepting either gender.
+  Eligibility is a hard constraint; its ordering guides baseline choices.
+
+Hour 0 is Monday 00:00, and 72 hours ends at Thursday 00:00, covering Monday
+through Wednesday. The bundled case has two hospitals, five patients, three
+SNFs and five beds. Baseline gives P2 a 24-hour wait and P5 a 28-hour wait;
+full-foresight CCN gives all five zero waiting. These 52 saved bed-hours describe
+this illustrative input, not an estimated real-world CCN effect.
+
+**Hospital blocked bed-hours** are the area under the number of ready patients
+still in hospital, clipped to the same observation window for both policies.
+They measure this cohort's extra occupancy after readiness, not total hospital
+occupancy. Still-waiting and structurally incompatible patients continue
+accumulating waiting up to the horizon. `mean_observed_wait_hours` divides this
+quantity by all supplied patients; `mean_wait_hours` includes only admissions
+observed by the horizon. Empty means are `null`. SNF utilization is occupied
+bed-hours divided by beds × observation hours. Future bookings do not count as
+observed occupancy. Full-plan waiting is separately reported and is `null` if
+someone can never match a compatible bed. CCN optimizes eventual waiting, so a
+lower full-plan objective need not lower waiting clipped to a short window.
+
+The JSON input contains `schema_version`, `name`, `horizon_hours`, `hospitals`,
+`snfs`, `beds`, and `patients`; see `scenarios/dynamic_examples.json`. Each bed has
+`id`, `snf_id`, `gender`; each patient has `id`, `hospital_id`, `gender`,
+`ready_hour`, `length_of_stay_hours`, and an ordered `eligible_snf_ids` list.
+Ready hours must fall between zero and the horizon, stays must be positive,
+and all hour values must be finite and no greater than 1,000,000. Empty
+eligibility lists are allowed and represent patients with no feasible SNF.
+Planned times can extend beyond the horizon; the result distinguishes these
+from observed admission and release times.
+
+Run the default case without the browser, or rerun one exported scenario:
+
+```powershell
+python dynamic_model.py --output dynamic-result.json
+python dynamic_model.py my-scenario.json --output dynamic-result.json
+```
+
+The dynamic API is `GET /api/dynamic/examples` and
+`POST /api/dynamic/run` with `{"scenario": ...}`. The legacy API remains unchanged.
 
 ### Suggested demonstration
 
