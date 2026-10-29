@@ -68,78 +68,116 @@ existing experiments separately.
 The local server and browser assets use the Python standard library and native
 browser features. No additional packages or build step are needed.
 
-### Dynamic placement: Monday to Wednesday
+### Dynamic placement: Patient Flow Studio
 
-Open **Dynamic placement** from the lab homepage, or visit
-`http://127.0.0.1:8765/dynamic` after starting the same server. Edit hospitals,
-SNFs, individual beds and their gender restrictions, patient gender, ready hour,
-SNF stay duration, ordered eligible SNFs, and observation horizon. Add or remove
-patients and beds, run the comparison, then scrub or play the clock to inspect
-hospital waiting and actual SNF occupancy. Patient journeys, placement times,
-waiting, and event logs are shown for both strategies. A changed draft is marked
-as stale until rerun. The dynamic page restores the last draft locally;
-**Export scenario** saves inputs, while **Export run** saves the exact submitted
-inputs and both results, even after subsequent draft edits.
+Start the same server and open **Dynamic placement**, or visit
+`http://127.0.0.1:8765/dynamic`. **Run comparison** creates synchronized
+hospital–patient–SNF scenes for hospital-local planning and all-hospital CCN.
+Play, pause, change speed, scrub hours, or step between events. Patient icons
+move into named SNF beds at actual admission and beds empty at release. Click a
+patient or bed to inspect both strategies; filter by hospital or find a patient.
+Movement is event playback and adds no simulated transport time.
 
-The dynamic engine is `dynamic_model.py`; it is separate from the three existing
-experiments and leaves their behavior intact. Its rules are:
+**Configure scenario** opens the workbench. Edit facilities, accepted insurance,
+bed gender/care capabilities, patient insurance/required care, ready times,
+stays, ordered eligible SNFs, horizon, and tie-break seed. Editors and detailed
+tables use pagination for larger cohorts. Import/export draft inputs or export
+exact completed-run inputs with results. Draft edits mark the saved result
+stale until recalculated. Drafts use a new local storage key so an old
+five-patient draft does not replace the larger initial example.
 
-- **Baseline:** only ready patients enter the queue. Process earliest ready time,
-  with patient input order breaking ties, and use the first free compatible bed
-  in the patient's ordered SNF list. Skip a blocked patient so others can enter
-  different compatible beds. It has no knowledge of future demand or departures
-  from either hospital.
-- **CCN:** knows every supplied patient's future readiness, eligibility and stay
-  exactly, and jointly schedules bed use to minimize eventual total waiting for
-  patients with compatible beds. Structurally impossible patients are reported
-  separately and still accumulate observed waiting to the horizon.
-  A constrained-first heuristic and the baseline provide feasible plans; bounded
-  branch-and-bound searches for improvements. Zero waiting proves optimality.
-  Nonzero cases may reach a 30,000-node or 2-second search budget; those results
-  explicitly say **search limit reached**, and are not claimed globally optimal.
-- All beds start empty. Admission, confirmation and hospital departure occur at
-  the same instant. No referral, authorization, transport or cleaning delay is
-  added. A bed releases at **actual admission + SNF stay**, and can be reused
-  at that same hour. Bed gender is fixed, with `any` accepting either gender.
-  Eligibility is a hard constraint; its ordering guides baseline choices.
+| Bundled input | Hospitals | Patients | SNFs | Beds | Hours |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Default one-week cohort | 4 | 96 | 6 | 24 | 168 |
+| Larger two-week cohort | 8 | 240 | 12 | 72 | 336 |
+| Legacy FIFO reference | 2 | 5 | 3 | 5 | 72 |
 
-Hour 0 is Monday 00:00, and 72 hours ends at Thursday 00:00, covering Monday
-through Wednesday. The bundled case has two hospitals, five patients, three
-SNFs and five beds. Baseline gives P2 a 24-hour wait and P5 a 28-hour wait;
-full-foresight CCN gives all five zero waiting. These 52 saved bed-hours describe
-this illustrative input, not an estimated real-world CCN effect.
+The generator supports up to **500 patients, 500 beds, 40 hospitals, and 40 SNFs**.
+Counts, observation hours, and random seed are configurable. Seeds reproduce
+inputs, not an assumed benefit. Generated patients have at least one compatible
+bed if any beds exist; they can still wait because that bed is occupied. Empty
+beds or incompatible custom inputs are also supported. Insurance plans
+(`Plan_A`, `Plan_B`, `Plan_C`) and care tags are synthetic scenario labels, not
+measured provider contracts or clinical staffing data.
 
-**Hospital blocked bed-hours** are the area under the number of ready patients
-still in hospital, clipped to the same observation window for both policies.
-They measure this cohort's extra occupancy after readiness, not total hospital
-occupancy. Still-waiting and structurally incompatible patients continue
-accumulating waiting up to the horizon. `mean_observed_wait_hours` divides this
-quantity by all supplied patients; `mean_wait_hours` includes only admissions
-observed by the horizon. Empty means are `null`. SNF utilization is occupied
-bed-hours divided by beds × observation hours. Future bookings do not count as
-observed occupancy. Full-plan waiting is separately reported and is `null` if
-someone can never match a compatible bed. CCN optimizes eventual waiting, so a
-lower full-plan objective need not lower waiting clipped to a short window.
+#### Scheduling rules
 
-The JSON input contains `schema_version`, `name`, `horizon_hours`, `hospitals`,
-`snfs`, `beds`, and `patients`; see `scenarios/dynamic_examples.json`. Each bed has
-`id`, `snf_id`, `gender`; each patient has `id`, `hospital_id`, `gender`,
-`ready_hour`, `length_of_stay_hours`, and an ordered `eligible_snf_ids` list.
-Ready hours must fall between zero and the horizon, stays must be positive,
-and all hour values must be finite and no greater than 1,000,000. Empty
-eligibility lists are allowed and represent patients with no feasible SNF.
-Planned times can extend beyond the horizon; the result distinguishes these
-from observed admission and release times.
+- **Hospital-local baseline** knows its own current patients and future ready
+  times/stays, and shared actual bed occupancy and release times. It plans to
+  minimize its own eventual total waiting. It does not see other hospitals'
+  future patient demand. Only actual accepted requests commit capacity; other
+  hospitals can invalidate tentative future plans. Waiting patients carry their
+  original ready time forward into replanning.
+- **CCN** knows all supplied future demand and jointly schedules compatible bed
+  intervals. It keeps the local-baseline schedule as a feasible incumbent and
+  seeks lower eventual total waiting. Either policy may deliberately defer a
+  ready patient if that reduces the objective for its visible cohort.
+- **SNF first-come, first-served** applies to qualified submitted requests.
+  Hospitals choose when and in which planned order to submit requests.
+  Equal-hour hospital ties use the scenario's seeded order. An earlier request
+  can use another compatible free bed in its requested SNF; rejected hospitals
+  replan at the same hour. Events expose request order and accepted/rejected
+  state. No artificial retry duration is added.
+- **Same hard constraints:** eligible SNF, bed gender, accepted insurance, and
+  every required care capability must match for both policies. `*` accepts any
+  insurance. An empty accepted-insurance list rejects everyone; an empty
+  required-care list adds no care restriction.
+- All SNF beds start empty. Admission, confirmation, and hospital departure are
+  simultaneous. Referral, authorization, transport, and cleaning durations are
+  zero. A bed released at hour 12 can be reused at hour 12. Stays begin at actual
+  admission, and future plans never count as actual occupancy.
 
-Run the default case without the browser, or rerun one exported scenario:
+Scheduling uses the same deterministic multi-order insertion heuristics for
+local and global visible cohorts. Subproblems with at most eight compatible
+patients additionally use bounded branch-and-bound. Local exact calls share
+a 30,000-node / two-second total budget; global exact search uses 30,000 nodes /
+two seconds. **Heuristic** and **search-limited** results do not claim exact
+optimality. A zero-wait lower bound can prove optimality at any size. Baseline
+metadata describes hospital-local subproblems, not a global optimum of the
+decentralized outcome. Wall-time exhaustion can affect the best plan found;
+preserve exported results when comparing a particular completed run.
+
+#### Metrics and time
+
+Hour 0 is Monday 00:00. Future-not-ready patients appear separately from the
+ready waiting queue and do not yet contribute blocked-bed metrics. **Waiting
+hospital beds** count ready patients still in hospital at that instant;
+**blocked bed-hours** integrate that count over the common observation window.
+These measure this cohort's extra occupancy after readiness, not total hospital
+occupancy. Unadmitted and structurally incompatible patients keep accumulating
+waiting to the horizon. `mean_observed_wait_hours` divides window waiting by all
+patients; `mean_wait_hours` describes only patients admitted by the horizon.
+Empty means are `null`.
+
+SNF utilization is actual occupied bed-hours divided by beds × observation
+hours. Full-plan eventual waiting is reported separately from censored window
+waiting. If someone has no compatible bed, the full-cohort eventual total is
+`null` and that patient remains visible. The CCN objective is eventual waiting,
+so a shorter observation window need not show a positive saving. No input or
+animation presupposes a CCN benefit.
+
+The five-patient reference explicitly selects `baseline_policy: fcfs`. Its
+52 → 0 hour result belongs to the legacy ready-only policy, not the new
+hospital-local benchmark.
+
+#### Input and API
+
+`dynamic_model.py` is separate from the three previous experiments. Existing
+JSON remains readable: missing `baseline_policy` defaults to `local`, patient
+insurance to `unspecified`, SNF accepted insurance to `["*"]`, and care lists to
+empty. `tie_break_seed` defaults to 42. Canonical exports include these fields.
+IDs must be unique within each list, ready times lie in the horizon, stays are
+positive, and hour inputs are finite and no greater than 1,000,000.
+
+`dynamic_scenarios.generate(params)` creates cohorts without extra dependencies.
+Use `GET /api/dynamic/examples`, `POST /api/dynamic/run` with `{"scenario": ...}`,
+or `POST /api/dynamic/generate` with generator counts, horizon, and seed. The
+legacy three-mode API and its limits are unchanged.
 
 ```powershell
 python dynamic_model.py --output dynamic-result.json
 python dynamic_model.py my-scenario.json --output dynamic-result.json
 ```
-
-The dynamic API is `GET /api/dynamic/examples` and
-`POST /api/dynamic/run` with `{"scenario": ...}`. The legacy API remains unchanged.
 
 ### Suggested demonstration
 

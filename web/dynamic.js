@@ -1,387 +1,154 @@
-/* Dynamic placement workspace. Draft inputs and the last completed run are separate. */
+/* Patient Flow Studio: editable drafts, immutable completed runs, and a shared event clock. */
 (() => {
   "use strict";
-  const $ = id => document.getElementById(id);
-  const clone = value => JSON.parse(JSON.stringify(value));
-  const state = { draft: null, examples: [], limits: { max_patients: 50, max_beds: 100, max_facilities: 12 }, lastRun: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json" };
-  const storageKey = "ohmy.dynamic.draft.v1";
-  const maxHours = 1000000, maxTextLength = 80;
-  const genders = [["female", "Female"], ["male", "Male"]];
-  const bedGenders = [["any", "Any gender"], ...genders];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined && text !== null) node.textContent = String(text);
-    return node;
-  }
-  function button(text, className, action, title) {
-    const node = el("button", className, text);
-    node.type = "button";
-    if (title) { node.title = title; node.setAttribute("aria-label", title); }
-    node.addEventListener("click", action);
-    return node;
-  }
-  function field(text, control, wide = false) {
-    const label = el("label", `field${wide ? " wide" : ""}`);
-    label.append(el("span", "", text), control);
-    return label;
-  }
-  function input(value, onInput, options = {}) {
-    const node = el("input");
-    node.type = options.type || "text";
-    node.value = value ?? "";
-    if (node.type === "text") node.maxLength = maxTextLength;
-    if (node.type === "number") node.max = maxHours;
-    if (options.min !== undefined) node.min = options.min;
-    if (options.max !== undefined) node.max = options.max;
-    if (options.step !== undefined) node.step = options.step;
-    if (options.label) node.setAttribute("aria-label", options.label);
-    node.addEventListener(options.commit ? "change" : "input", () => {
-      onInput(node.type === "number" ? (node.value === "" ? null : Number(node.value)) : node.value, node);
-    });
-    return node;
-  }
-  function select(value, options, change, label) {
-    const node = el("select");
-    if (label) node.setAttribute("aria-label", label);
-    for (const [key, title] of options) { const option = el("option", "", title); option.value = key; node.append(option); }
-    if (!options.length) { const option = el("option", "", "Add a facility first"); option.value = ""; node.append(option); }
-    node.value = value;
-    node.addEventListener("change", () => change(node.value));
-    return node;
-  }
+  const $ = id => document.getElementById(id), clone = value => JSON.parse(JSON.stringify(value));
+  const state = { draft: null, examples: [], limits: { max_patients: 500, max_beds: 500, max_facilities: 40 }, lastRun: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json", selected: null, hospitalFilter: "", snfFilter: "", search: "", editorSearch: "", patientPage: 0, bedPage: 0, tablePage: 0, eventPage: 0, maps: {}, scenes: {}, patientIndex: new Map(), expandedWards: new Set() };
+  const storageKey = "ohmy.dynamic.draft.v2", maxHours = 1000000, maxTextLength = 80, PAGE = 10, TABLE_PAGE = 25;
+  const genders = [["female", "Female"], ["male", "Male"]], bedGenders = [["any", "Any gender"], ...genders], days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const CARE_LABELS = { rehabilitation: "Rehabilitation", oxygen: "Oxygen", bariatric: "Bariatric", dialysis: "Dialysis", wound_care: "Wound care", memory_care: "Memory care" };
+  function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined && text !== null) node.textContent = String(text); return node; }
+  function button(text, className, action, title) { const node = el("button", className, text); node.type = "button"; if (title) { node.title = title; node.setAttribute("aria-label", title); } node.addEventListener("click", action); return node; }
+  function field(text, control, wide = false) { const label = el("label", `field${wide ? " wide" : ""}`); label.append(el("span", "", text), control); return label; }
+  function input(value, onInput, options = {}) { const node = el("input"); node.type = options.type || "text"; node.value = value ?? ""; if (node.type === "text") node.maxLength = options.maxLength || maxTextLength; if (node.type === "number") node.max = maxHours; for (const key of ["min", "max", "step", "placeholder"]) if (options[key] !== undefined) node[key] = options[key]; if (options.label) node.setAttribute("aria-label", options.label); node.addEventListener(options.commit ? "change" : "input", () => onInput(node.type === "number" ? node.value === "" ? null : Number(node.value) : node.value, node)); return node; }
+  function select(value, options, change, label) { const node = el("select"); if (label) node.setAttribute("aria-label", label); for (const [key, title] of options) { const option = el("option", "", title); option.value = key; node.append(option); } if (!options.length) { const option = el("option", "", "Add a facility first"); option.value = ""; node.append(option); } node.value = value; node.addEventListener("change", () => change(node.value)); return node; }
+  function tags(value) { return [...new Set(value.split(",").map(v => v.trim()).filter(Boolean))]; }
+  function tagInput(value, update, label, placeholder) { return input((value || []).join(", "), value => { update(tags(value)); dirty(); }, { maxLength: 1200, label, placeholder }); }
   function fmt(value) { return value === null || value === undefined || !Number.isFinite(Number(value)) ? "—" : Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
-  function clock(hour, includeHours = false) {
-    if (hour === null || hour === undefined || !Number.isFinite(Number(hour))) return "—";
-    const minutes = Math.round(Number(hour) * 60), day = Math.floor(minutes / 1440), remainder = minutes % 1440;
-    const week = Math.floor(day / 7);
-    const result = `${days[day % 7]}${week ? ` +${week}w` : ""} ${String(Math.floor(remainder / 60)).padStart(2, "0")}:${String(remainder % 60).padStart(2, "0")}`;
-    return includeHours ? `${result} · ${fmt(hour)} h` : result;
-  }
+  function clock(hour, includeHours = false) { if (hour === null || hour === undefined || !Number.isFinite(Number(hour))) return "—"; const minutes = Math.round(Number(hour) * 60), day = Math.floor(minutes / 1440), remainder = minutes % 1440, week = Math.floor(day / 7), result = `${days[day % 7]}${week ? ` +${week}w` : ""} ${String(Math.floor(remainder / 60)).padStart(2, "0")}:${String(remainder % 60).padStart(2, "0")}`; return includeHours ? `${result} · ${fmt(hour)} h` : result; }
   function showError(id, message) { $(id).textContent = message || ""; $(id).hidden = !message; }
   function message(text) { $("dynamic-editor-message").textContent = text; }
-  function dirty() {
-    try { localStorage.setItem(storageKey, JSON.stringify(state.draft)); } catch (_) { /* Saving is optional. */ }
-    const stale = Boolean(state.lastRun) && JSON.stringify(state.draft) !== JSON.stringify(state.submitted);
-    $("dynamic-stale").hidden = !stale;
-    $("dynamic-result-status").textContent = state.busy ? "Running…" : stale ? "Inputs changed" : state.lastRun ? "Run complete" : "Ready to run";
-    $("dynamic-result-status").className = `result-status${stale ? " stale" : state.lastRun ? " complete" : ""}`;
-  }
+  function defaultFields(s) { const copy = clone(s); if (copy.tie_break_seed === undefined) copy.tie_break_seed = 42; if (copy.baseline_policy === undefined) copy.baseline_policy = "local"; (copy.snfs || []).forEach(f => { if (f.accepted_insurances === undefined) f.accepted_insurances = ["*"]; }); (copy.beds || []).forEach(b => { if (b.capabilities === undefined) b.capabilities = []; }); (copy.patients || []).forEach(p => { if (p.insurance_type === undefined) p.insurance_type = "unspecified"; if (p.required_capabilities === undefined) p.required_capabilities = []; }); return copy; }
+  function summary(s) { return `${s.hospitals.length} hospitals · ${s.patients.length} patients · ${s.snfs.length} SNFs · ${s.beds.length} beds · ${fmt(s.horizon_hours / 24)} days`; }
+  function dirty() { if (!state.draft) return; try { localStorage.setItem(storageKey, JSON.stringify(state.draft)); } catch (_) {} const stale = Boolean(state.lastRun) && JSON.stringify(state.draft) !== JSON.stringify(state.submitted); $("dynamic-stale").hidden = !stale; $("dynamic-result-status").textContent = state.busy ? "Running…" : stale ? "Draft changed" : state.lastRun ? "Run complete" : "Ready to run"; $("dynamic-result-status").className = `result-status${stale ? " stale" : state.lastRun ? " complete" : ""}`; $("dynamic-draft-name").textContent = state.draft.name || "Untitled scenario"; $("dynamic-draft-summary").textContent = summary(state.draft); }
   function nextId(prefix, entities) { let n = 1; const ids = new Set(entities.map(item => item.id)); while (ids.has(`${prefix}${n}`)) n++; return `${prefix}${n}`; }
-  function section(key, title, count, content) {
-    const node = el("details", "editor-section"); node.dataset.section = key; node.open = true;
-    const summary = el("summary", "", title); summary.append(el("span", "section-count", `${count}`)); node.append(summary, content); return node;
-  }
-  function rename(kind, index, value, control) {
-    const entities = state.draft[kind], oldId = entities[index].id, newId = value.trim();
-    if (!newId || newId.length > maxTextLength || entities.some((item, i) => i !== index && item.id === newId)) {
-      control.value = oldId; message("Each ID must be non-empty, unique within its type and at most 80 characters."); return;
-    }
-    entities[index].id = newId;
-    if (kind === "hospitals") state.draft.patients.forEach(p => { if (p.hospital_id === oldId) p.hospital_id = newId; });
-    if (kind === "snfs") {
-      state.draft.beds.forEach(b => { if (b.snf_id === oldId) b.snf_id = newId; });
-      state.draft.patients.forEach(p => { p.eligible_snf_ids = p.eligible_snf_ids.map(id => id === oldId ? newId : id); });
-    }
-    dirty(); renderEditor(); message("ID updated; linked references updated too.");
-  }
+  function section(key, title, count, content) { const node = el("details", "editor-section"); node.dataset.section = key; const caption = el("summary", "", title); caption.append(el("span", "section-count", count)); node.append(caption, content); return node; }
+  function rename(kind, index, value, control) { const entities = state.draft[kind], oldId = entities[index].id, newId = value.trim(); if (!newId || entities.some((item, i) => i !== index && item.id === newId)) { control.value = oldId; message("IDs must be non-empty and unique within each entity type."); return; } entities[index].id = newId; if (kind === "hospitals") state.draft.patients.forEach(p => { if (p.hospital_id === oldId) p.hospital_id = newId; }); if (kind === "snfs") { state.draft.beds.forEach(b => { if (b.snf_id === oldId) b.snf_id = newId; }); state.draft.patients.forEach(p => { p.eligible_snf_ids = p.eligible_snf_ids.map(id => id === oldId ? newId : id); }); } dirty(); renderEditor(); message("ID and linked references updated."); }
+  function pagination(page, count, size, change) { const node = el("div", "pagination"), pages = Math.max(1, Math.ceil(count / size)), back = button("← Previous", "", () => change(page - 1)), next = button("Next →", "", () => change(page + 1)); back.disabled = page <= 0; next.disabled = page >= pages - 1; node.append(back, el("span", "", `${page + 1} / ${pages}`), next); return node; }
   function renderEditor() {
-    const root = $("dynamic-editor"), open = new Map([...root.querySelectorAll("details[data-section]")].map(n => [n.dataset.section, n.open]));
-    root.replaceChildren();
-    const s = state.draft;
-    const basics = el("div", "dynamic-fields");
-    basics.append(field("Scenario name", input(s.name, v => { s.name = v; dirty(); })), field("Observe through (h)", input(s.horizon_hours, v => { s.horizon_hours = v; dirty(); }, { type: "number", min: 0.01, step: "any" })));
-    root.append(basics);
+    const root = $("dynamic-editor"), open = new Map([...root.querySelectorAll("details[data-section]")].map(n => [n.dataset.section, n.open])); root.replaceChildren(); const s = state.draft;
+    const basics = el("div", "config-basics"); basics.append(field("Scenario name", input(s.name, v => { s.name = v; dirty(); })), field("Observe through (h)", input(s.horizon_hours, v => { s.horizon_hours = v; dirty(); }, { type: "number", min: 0.01, step: "any" })), field("Tie-break seed", input(s.tie_break_seed, v => { s.tie_break_seed = v; dirty(); }, { type: "number", min: 0, max: 2147483647, step: 1 })), field("Baseline policy", select(s.baseline_policy, [["local", "Hospital-local optimization"], ["fcfs", "Simple online FCFS"]], v => { s.baseline_policy = v; dirty(); }))); root.append(basics);
     const facilities = el("div", "editor-content facility-grid");
-    for (const [kind, title, prefix] of [["hospitals", "Hospitals", "Hospital_"], ["snfs", "SNFs", "SNF"]]) {
-      const col = el("div"); col.append(el("h3", "", title));
-      s[kind].forEach((item, index) => {
-        const row = el("div", "facility-row");
-        row.append(input(item.id, (v, control) => rename(kind, index, v, control), { commit: true, label: `${title} ID ${index + 1}` }), button("×", "icon-button", () => {
-          const removed = s[kind].splice(index, 1)[0].id;
-          if (kind === "hospitals") s.patients.forEach(p => { if (p.hospital_id === removed) p.hospital_id = s.hospitals[0]?.id || ""; });
-          else { s.beds = s.beds.filter(b => b.snf_id !== removed); s.patients.forEach(p => { p.eligible_snf_ids = p.eligible_snf_ids.filter(id => id !== removed); }); }
-          dirty(); renderEditor(); message(kind === "snfs" ? `Removed ${removed}, its beds and eligibility references.` : `Removed ${removed}. Affected patients reassigned to the first remaining hospital, if any.`);
-        }, `Delete ${item.id}`)); col.append(row);
-      });
-      if (!s[kind].length) col.append(el("p", "no-entities", "No facilities added."));
-      const add = button(`+ Add ${kind === "snfs" ? "SNF" : "hospital"}`, "add-button", () => {
-        s[kind].push({ id: nextId(prefix, s[kind]) }); dirty(); renderEditor();
-      }); add.disabled = s[kind].length >= state.limits.max_facilities; col.append(add); facilities.append(col);
-    }
-    root.append(section("facilities", "Hospitals & SNFs", `${s.hospitals.length} / ${s.snfs.length}`, facilities));
-    const beds = el("div", "editor-content");
-    beds.append(el("p", "small-note", "Each row is one physical bed. All beds are empty at hour 0 and become available again at release."));
-    const table = el("table", "entity-table"); const head = el("thead"), tr = el("tr");
-    for (const text of ["Bed ID", "SNF", "Gender", ""]) tr.append(el("th", "", text)); head.append(tr); table.append(head);
-    const body = el("tbody");
-    s.beds.forEach((bed, index) => {
-      const row = el("tr");
-      const controls = [input(bed.id, (v, control) => rename("beds", index, v, control), { commit: true, label: `Bed ${index + 1} ID` }), select(bed.snf_id, s.snfs.map(f => [f.id, f.id]), v => { bed.snf_id = v; dirty(); }, `SNF for ${bed.id}`), select(bed.gender, bedGenders, v => { bed.gender = v; dirty(); }, `Gender for ${bed.id}`), button("×", "icon-button", () => { s.beds.splice(index, 1); dirty(); renderEditor(); }, `Delete bed ${bed.id}`)];
-      controls.forEach(control => { const cell = el("td"); cell.append(control); row.append(cell); }); body.append(row);
-    }); table.append(body); beds.append(table);
-    if (!s.beds.length) beds.append(el("p", "no-entities", "No beds. Patients will remain waiting."));
-    const addBed = button("+ Add bed", "add-button", () => { s.beds.push({ id: nextId("Bed_", s.beds), snf_id: s.snfs[0]?.id || "", gender: "any" }); dirty(); renderEditor(); });
-    addBed.disabled = s.beds.length >= state.limits.max_beds || !s.snfs.length; beds.append(addBed); root.append(section("beds", "SNF beds", s.beds.length, beds));
-    const patients = el("div", "editor-content");
-    patients.append(el("p", "small-note", "Ready = medically ready to leave hospital. Stays begin at actual SNF admission. Input order breaks baseline ties at the same ready hour."));
-    s.patients.forEach((p, index) => {
-      const card = el("article", "entity-row"); const heading = el("div", "entity-heading");
-      heading.append(el("span", "patient-row-name", `PATIENT ${index + 1} / ${p.id}`)); const actions = el("div", "row-actions");
-      for (const [direction, glyph] of [[-1, "↑"], [1, "↓"]]) {
-        const move = button(glyph, "icon-button", () => { const target = index + direction; [s.patients[index], s.patients[target]] = [s.patients[target], s.patients[index]]; dirty(); renderEditor(); }, `Move ${p.id} ${direction < 0 ? "earlier" : "later"} in priority`);
-        move.disabled = index + direction < 0 || index + direction >= s.patients.length; actions.append(move);
-      }
-      actions.append(button("×", "icon-button", () => { s.patients.splice(index, 1); dirty(); renderEditor(); }, `Delete patient ${p.id}`)); heading.append(actions); card.append(heading);
-      const fields = el("div", "entity-fields");
-      fields.append(field("Patient ID", input(p.id, (v, control) => rename("patients", index, v, control), { commit: true })), field("Hospital", select(p.hospital_id, s.hospitals.map(f => [f.id, f.id]), v => { p.hospital_id = v; dirty(); })), field("Gender", select(p.gender, genders, v => { p.gender = v; dirty(); })), field("Ready hour", input(p.ready_hour, v => { p.ready_hour = v; dirty(); }, { type: "number", min: 0, step: "any" })), field("SNF stay (hours)", input(p.length_of_stay_hours, v => { p.length_of_stay_hours = v; dirty(); }, { type: "number", min: 0.01, step: "any" })));
-      card.append(fields, el("p", "preference-caption", "Eligible SNFs · click to include; arrows reorder preference"));
-      const choices = el("div", "preference-list");
-      const ordered = [...p.eligible_snf_ids, ...s.snfs.map(f => f.id).filter(id => !p.eligible_snf_ids.includes(id))];
-      ordered.forEach(id => {
-        const rank = p.eligible_snf_ids.indexOf(id), chip = el("div", `preference-chip${rank >= 0 ? " included" : ""}`);
-        const toggle = button("", "", () => { p.eligible_snf_ids = rank >= 0 ? p.eligible_snf_ids.filter(v => v !== id) : [...p.eligible_snf_ids, id]; dirty(); renderEditor(); }, `${rank >= 0 ? "Remove" : "Include"} ${id} for ${p.id}`);
-        toggle.setAttribute("aria-pressed", String(rank >= 0)); if (rank >= 0) toggle.append(el("span", "rank", rank + 1)); toggle.append(document.createTextNode(id)); chip.append(toggle);
-        if (rank >= 0) {
-          for (const [delta, glyph] of [[-1, "←"], [1, "→"]]) {
-            const reorder = button(glyph, "", () => { const target = rank + delta; [p.eligible_snf_ids[rank], p.eligible_snf_ids[target]] = [p.eligible_snf_ids[target], p.eligible_snf_ids[rank]]; dirty(); renderEditor(); }, `Move ${id} ${delta < 0 ? "earlier" : "later"} in ${p.id} preference`);
-            reorder.disabled = rank + delta < 0 || rank + delta >= p.eligible_snf_ids.length; chip.append(reorder);
-          }
-        }
-        choices.append(chip);
-      }); card.append(choices);
-      if (!p.eligible_snf_ids.length) card.append(el("p", "dynamic-editor-warning", "No eligible SNF selected. This patient cannot be placed."));
-      patients.append(card);
-    });
-    const addPatient = button("+ Add patient", "add-button", () => { s.patients.push({ id: nextId("P", s.patients), hospital_id: s.hospitals[0]?.id || "", gender: "female", ready_hour: 0, length_of_stay_hours: 24, eligible_snf_ids: s.snfs.map(f => f.id) }); dirty(); renderEditor(); });
-    addPatient.disabled = s.patients.length >= state.limits.max_patients || !s.hospitals.length; patients.append(addPatient); root.append(section("patients", "Patients & future demand", s.patients.length, patients));
-    for (const node of root.querySelectorAll("details[data-section]")) if (open.has(node.dataset.section)) node.open = open.get(node.dataset.section);
+    for (const [kind, title, prefix] of [["hospitals", "Hospitals", "Hospital_"], ["snfs", "SNFs", "SNF_"]]) { const col = el("div"); col.append(el("h3", "", title)); s[kind].forEach((item, index) => { const entry = el("div", "facility-entry"), row = el("div", "facility-row"); row.append(input(item.id, (v, control) => rename(kind, index, v, control), { commit: true, label: `${title} ID ${index + 1}` }), button("×", "icon-button", () => { const removed = s[kind].splice(index, 1)[0].id; if (kind === "hospitals") s.patients.forEach(p => { if (p.hospital_id === removed) p.hospital_id = s.hospitals[0]?.id || ""; }); else { s.beds = s.beds.filter(b => b.snf_id !== removed); s.patients.forEach(p => { p.eligible_snf_ids = p.eligible_snf_ids.filter(id => id !== removed); }); } dirty(); renderEditor(); message("Removed facility and updated linked references. Review affected patients before running."); }, `Delete ${item.id}`)); entry.append(row); if (kind === "snfs") entry.append(field("Accepted insurance · comma-separated; * accepts all", tagInput(item.accepted_insurances, v => { item.accepted_insurances = v; }, `Accepted insurance for ${item.id}`, "Plan_A, Plan_B"))); col.append(entry); }); const add = button(`+ Add ${kind === "snfs" ? "SNF" : "hospital"}`, "add-button", () => { s[kind].push({ id: nextId(prefix, s[kind]), ...(kind === "snfs" ? { accepted_insurances: ["*"] } : {}) }); dirty(); renderEditor(); }); add.disabled = s[kind].length >= state.limits.max_facilities; col.append(add); facilities.append(col); }
+    root.append(section("facilities", "Hospitals & insurance networks", `${s.hospitals.length} / ${s.snfs.length}`, facilities));
+    const beds = el("div", "editor-content"); beds.append(el("p", "small-note", "One row is one physical SNF bed. Care capabilities are comma-separated tags such as rehabilitation, oxygen, bariatric or wound_care. A patient must match every required tag."));
+    const wrap = el("div", "result-table-wrap"), [bedTable, bedBody] = table(["Bed ID", "SNF", "Gender", "Care capabilities", ""]); bedTable.className = "entity-table compact-table"; state.bedPage = Math.min(state.bedPage, Math.max(0, Math.ceil(s.beds.length / 25) - 1)); s.beds.slice(state.bedPage * 25, state.bedPage * 25 + 25).forEach((bed, offset) => { const index = state.bedPage * 25 + offset, row = el("tr"), controls = [input(bed.id, (v, control) => rename("beds", index, v, control), { commit: true, label: `Bed ${index + 1} ID` }), select(bed.snf_id, s.snfs.map(f => [f.id, f.id]), v => { bed.snf_id = v; dirty(); }, `SNF for ${bed.id}`), select(bed.gender, bedGenders, v => { bed.gender = v; dirty(); }, `Gender for ${bed.id}`), tagInput(bed.capabilities, v => { bed.capabilities = v; }, `Care capabilities for ${bed.id}`, "rehabilitation, oxygen"), button("×", "icon-button", () => { s.beds.splice(index, 1); dirty(); renderEditor(); }, `Delete ${bed.id}`)]; controls.forEach(control => { const td = el("td"); td.append(control); row.append(td); }); bedBody.append(row); }); wrap.append(bedTable); beds.append(wrap); const bedTools = el("div", "editor-page-tools"), addBed = button("+ Add bed", "add-button", () => { s.beds.push({ id: nextId("Bed_", s.beds), snf_id: s.snfs[0]?.id || "", gender: "any", capabilities: [] }); state.bedPage = Math.floor((s.beds.length - 1) / 25); dirty(); renderEditor(); }); addBed.disabled = s.beds.length >= state.limits.max_beds || !s.snfs.length; bedTools.append(addBed, pagination(state.bedPage, s.beds.length, 25, page => { state.bedPage = page; renderEditor(); })); beds.append(bedTools); root.append(section("beds", "SNF beds & care capabilities", s.beds.length, beds));
+    const patients = el("div", "editor-content"), searchRow = el("div", "editor-search"); const search = input(state.editorSearch, v => { state.editorSearch = v; state.patientPage = 0; renderEditor(); const target = $("dynamic-editor-search"); target.focus(); target.setSelectionRange(v.length, v.length); }, { type: "search", placeholder: "Search patient or hospital…", label: "Find patient to edit" }); search.id = "dynamic-editor-search"; searchRow.append(search, el("p", "", "Insurance plan + ALL care tags must match.")); patients.append(searchRow);
+    const filtered = s.patients.map((p, index) => ({ p, index })).filter(({ p }) => `${p.id} ${p.hospital_id}`.toLowerCase().includes(state.editorSearch.toLowerCase())); state.patientPage = Math.min(state.patientPage, Math.max(0, Math.ceil(filtered.length / PAGE) - 1));
+    filtered.slice(state.patientPage * PAGE, state.patientPage * PAGE + PAGE).forEach(({ p, index }) => { const card = el("article", "entity-row"), heading = el("div", "entity-heading"), actions = el("div", "row-actions"); heading.append(el("span", "patient-row-name", `${p.id} / PATIENT ${index + 1}`)); for (const [delta, glyph] of [[-1, "↑"], [1, "↓"]]) { const move = button(glyph, "icon-button", () => { const target = index + delta; [s.patients[index], s.patients[target]] = [s.patients[target], s.patients[index]]; dirty(); renderEditor(); }, `Move ${p.id} ${delta < 0 ? "earlier" : "later"} in input order`); move.disabled = index + delta < 0 || index + delta >= s.patients.length; actions.append(move); } actions.append(button("×", "icon-button", () => { s.patients.splice(index, 1); dirty(); renderEditor(); }, `Delete ${p.id}`)); heading.append(actions); card.append(heading); const fields = el("div", "entity-fields"); fields.append(field("Patient ID", input(p.id, (v, control) => rename("patients", index, v, control), { commit: true })), field("Hospital", select(p.hospital_id, s.hospitals.map(f => [f.id, f.id]), v => { p.hospital_id = v; dirty(); })), field("Gender", select(p.gender, genders, v => { p.gender = v; dirty(); })), field("Insurance plan", input(p.insurance_type, v => { p.insurance_type = v; dirty(); }, { placeholder: "Plan_A" })), field("Ready hour", input(p.ready_hour, v => { p.ready_hour = v; dirty(); }, { type: "number", min: 0, step: "any" })), field("SNF stay (hours)", input(p.length_of_stay_hours, v => { p.length_of_stay_hours = v; dirty(); }, { type: "number", min: 0.01, step: "any" })), field("Required care · comma-separated", tagInput(p.required_capabilities, v => { p.required_capabilities = v; }, `Required care for ${p.id}`, "rehabilitation, oxygen"), true)); card.append(fields, el("p", "preference-caption", "Eligible SNFs · click to include; arrows order preference")); const choices = el("div", "preference-list"), ordered = [...p.eligible_snf_ids, ...s.snfs.map(f => f.id).filter(id => !p.eligible_snf_ids.includes(id))]; ordered.forEach(id => { const rank = p.eligible_snf_ids.indexOf(id), chip = el("div", `preference-chip${rank >= 0 ? " included" : ""}`), toggle = button(`${rank >= 0 ? `${rank + 1} · ` : "+ "}${id}`, "", () => { p.eligible_snf_ids = rank >= 0 ? p.eligible_snf_ids.filter(v => v !== id) : [...p.eligible_snf_ids, id]; dirty(); renderEditor(); }, `${rank >= 0 ? "Remove" : "Include"} ${id} for ${p.id}`); toggle.setAttribute("aria-pressed", String(rank >= 0)); chip.append(toggle); if (rank >= 0) for (const [delta, glyph] of [[-1, "←"], [1, "→"]]) { const reorder = button(glyph, "", () => { const target = rank + delta; [p.eligible_snf_ids[rank], p.eligible_snf_ids[target]] = [p.eligible_snf_ids[target], p.eligible_snf_ids[rank]]; dirty(); renderEditor(); }, `Move ${id} in ${p.id} preference`); reorder.disabled = rank + delta < 0 || rank + delta >= p.eligible_snf_ids.length; chip.append(reorder); } choices.append(chip); }); card.append(choices); if (!p.eligible_snf_ids.length) card.append(el("p", "dynamic-editor-warning", "No eligible SNF. This patient will remain waiting.")); patients.append(card); });
+    const patientTools = el("div", "editor-page-tools"), addPatient = button("+ Add patient", "add-button", () => { s.patients.push({ id: nextId("P", s.patients), hospital_id: s.hospitals[0]?.id || "", gender: "female", insurance_type: "unspecified", required_capabilities: [], ready_hour: 0, length_of_stay_hours: 24, eligible_snf_ids: s.snfs.map(f => f.id) }); state.editorSearch = ""; state.patientPage = Math.floor((s.patients.length - 1) / PAGE); dirty(); renderEditor(); }); addPatient.disabled = s.patients.length >= state.limits.max_patients || !s.hospitals.length; patientTools.append(addPatient, pagination(state.patientPage, filtered.length, PAGE, page => { state.patientPage = page; renderEditor(); })); patients.append(patientTools); root.append(section("patients", "Patients, insurance & care needs", s.patients.length, patients));
+    for (const node of root.querySelectorAll("details[data-section]")) node.open = open.get(node.dataset.section) || false;
   }
   function validate(s) {
-    if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Import a scenario object, or an exported run containing a scenario.");
-    if (s.schema_version !== 1) throw new Error("This editor requires dynamic scenario schema_version: 1.");
+    if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Import a scenario object or an exported run containing a scenario.");
+    if (s.schema_version !== 1) throw new Error("Dynamic scenario schema_version must be 1.");
     if (typeof s.name !== "string" || !s.name.trim() || s.name.length > maxTextLength) throw new Error("Give the scenario a name of 1–80 characters.");
     if (!Number.isFinite(s.horizon_hours) || s.horizon_hours <= 0 || s.horizon_hours > maxHours) throw new Error("Observation horizon must be positive and at most 1,000,000 hours.");
-    for (const [key, max] of [["hospitals", state.limits.max_facilities], ["snfs", state.limits.max_facilities], ["beds", state.limits.max_beds], ["patients", state.limits.max_patients]]) {
-      if (!Array.isArray(s[key]) || s[key].length > max) throw new Error(`${key} must be an array with at most ${max} entries.`);
-      const seen = new Set();
-      for (const item of s[key]) { if (!item || typeof item.id !== "string" || !item.id.trim() || item.id.length > maxTextLength || seen.has(item.id)) throw new Error(`Every ${key} ID must be non-empty, unique and at most 80 characters.`); seen.add(item.id); }
-    }
+    if (!Number.isInteger(s.tie_break_seed) || s.tie_break_seed < 0) throw new Error("Tie-break seed must be a non-negative integer.");
+    if (!["local", "fcfs"].includes(s.baseline_policy)) throw new Error("Baseline policy must be local or fcfs.");
+    const checkTags = (value, label) => { if (!Array.isArray(value) || value.some(v => typeof v !== "string" || !v.trim() || v.length > 80) || new Set(value).size !== value.length) throw new Error(`${label} must be a list of unique, non-empty tags of at most 80 characters.`); };
+    for (const [key, max] of [["hospitals", state.limits.max_facilities], ["snfs", state.limits.max_facilities], ["beds", state.limits.max_beds], ["patients", state.limits.max_patients]]) { if (!Array.isArray(s[key]) || s[key].length > max) throw new Error(`${key} must be an array with at most ${max} entries.`); const seen = new Set(); for (const item of s[key]) { if (!item || typeof item.id !== "string" || !item.id.trim() || item.id.length > maxTextLength || seen.has(item.id)) throw new Error(`Every ${key} ID must be non-empty, unique and at most 80 characters.`); seen.add(item.id); } }
     const hospitalIds = new Set(s.hospitals.map(v => v.id)), snfIds = new Set(s.snfs.map(v => v.id));
-    for (const b of s.beds) { if (!snfIds.has(b.snf_id)) throw new Error(`Bed ${b.id} must refer to an existing SNF.`); if (!bedGenders.some(v => v[0] === b.gender)) throw new Error(`Bed ${b.id} gender must be any, female or male.`); }
-    for (const p of s.patients) {
-      if (!hospitalIds.has(p.hospital_id)) throw new Error(`Patient ${p.id} must refer to an existing hospital.`);
-      if (!genders.some(v => v[0] === p.gender)) throw new Error(`Patient ${p.id} gender must be female or male.`);
-      if (!Number.isFinite(p.ready_hour) || p.ready_hour < 0 || p.ready_hour > s.horizon_hours || p.ready_hour > maxHours) throw new Error(`Patient ${p.id} ready hour must be between 0 and the observation horizon, at most 1,000,000 hours.`);
-      if (!Number.isFinite(p.length_of_stay_hours) || p.length_of_stay_hours <= 0 || p.length_of_stay_hours > maxHours) throw new Error(`Patient ${p.id} SNF stay must be positive and at most 1,000,000 hours.`);
-      if (!Array.isArray(p.eligible_snf_ids) || p.eligible_snf_ids.some(id => !snfIds.has(id)) || new Set(p.eligible_snf_ids).size !== p.eligible_snf_ids.length) throw new Error(`Patient ${p.id} must list existing, non-repeated eligible SNFs.`);
-    }
+    for (const f of s.snfs) checkTags(f.accepted_insurances, `${f.id} accepted insurance`);
+    for (const b of s.beds) { if (!snfIds.has(b.snf_id)) throw new Error(`Bed ${b.id} must refer to an existing SNF.`); if (!bedGenders.some(v => v[0] === b.gender)) throw new Error(`Bed ${b.id} gender must be any, female or male.`); checkTags(b.capabilities, `${b.id} capabilities`); }
+    for (const p of s.patients) { if (!hospitalIds.has(p.hospital_id)) throw new Error(`Patient ${p.id} must refer to an existing hospital.`); if (!genders.some(v => v[0] === p.gender)) throw new Error(`Patient ${p.id} gender must be female or male.`); if (typeof p.insurance_type !== "string" || !p.insurance_type.trim() || p.insurance_type.length > 80) throw new Error(`${p.id} requires a non-empty insurance plan of at most 80 characters.`); checkTags(p.required_capabilities, `${p.id} care requirements`); if (!Number.isFinite(p.ready_hour) || p.ready_hour < 0 || p.ready_hour > s.horizon_hours) throw new Error(`Patient ${p.id} ready hour must be between 0 and the observation horizon.`); if (!Number.isFinite(p.length_of_stay_hours) || p.length_of_stay_hours <= 0 || p.length_of_stay_hours > maxHours) throw new Error(`Patient ${p.id} SNF stay must be positive and at most 1,000,000 hours.`); if (!Array.isArray(p.eligible_snf_ids) || p.eligible_snf_ids.some(id => !snfIds.has(id)) || new Set(p.eligible_snf_ids).size !== p.eligible_snf_ids.length) throw new Error(`Patient ${p.id} must list existing, non-repeated eligible SNFs.`); }
     return s;
   }
-  async function api(url, options) {
-    const response = await fetch(url, options);
-    let data; try { data = await response.json(); } catch (_) { throw new Error("The server did not return JSON. Check that the scenario lab server is running."); }
-    if (!response.ok) {
-      const detail = data.error || data.detail || data.message || `Request failed (${response.status}).`;
-      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-    }
-    return data;
-  }
-  async function run(event) {
-    event.preventDefault(); if (state.busy) return;
-    stopPlayback(); showError("dynamic-run-error", "");
-    let submitted; try { submitted = clone(validate(state.draft)); } catch (error) { showError("dynamic-run-error", error.message); return; }
-    state.busy = true; $("dynamic-run").disabled = true; $("dynamic-quick-run").disabled = true; $("dynamic-run").firstElementChild.textContent = "Simulating…"; dirty();
-    try {
-      const data = await api("/api/dynamic/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: submitted }) });
-      stopPlayback();
-      state.lastRun = data; state.submitted = submitted; state.runTime = new Date().toISOString(); state.hour = 0;
-      renderResults(); message("Run complete. Playback and exports use this saved run.");
-    } catch (error) { showError("dynamic-run-error", error.message); }
-    finally { state.busy = false; $("dynamic-run").disabled = false; $("dynamic-quick-run").disabled = false; $("dynamic-run").firstElementChild.textContent = "Run dynamic comparison"; dirty(); }
-  }
-  function metric(title, baseline, ccn, delta, suffix = "") {
-    const card = el("div", "dynamic-stat"); card.append(el("h4", "", title));
-    for (const [key, label, value] of [["baseline", "Baseline", baseline], ["ccn", "CCN", ccn]]) { const row = el("div", "stat-comparison"); row.append(el("span", "", label), el("strong", `${key}-value`, `${fmt(value)}${suffix}`)); card.append(row); }
-    card.append(el("p", "stat-delta", delta)); return card;
-  }
+  async function api(url, options) { const response = await fetch(url, options); let data; try { data = await response.json(); } catch (_) { throw new Error("The server did not return JSON. Check that the scenario lab server is running."); } if (!response.ok) { const detail = data.error || data.detail || data.message || `Request failed (${response.status}).`; throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail)); } return data; }
+  async function run(event) { event.preventDefault(); if (state.busy) return; stopPlayback(); showError("dynamic-run-error", ""); showError("dynamic-config-error", ""); let submitted; try { submitted = clone(validate(state.draft)); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); return; } state.busy = true; setBusy(true); dirty(); try { const data = await api("/api/dynamic/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: submitted }) }); stopPlayback(); state.lastRun = data; state.submitted = submitted; state.runTime = new Date().toISOString(); state.hour = 0; state.selected = null; state.hospitalFilter = ""; state.snfFilter = ""; state.search = ""; state.tablePage = 0; state.eventPage = 0; state.expandedWards.clear(); renderResults(); $("dynamic-config-dialog").close(); message("Run complete. Playback uses these saved inputs and results."); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); } finally { state.busy = false; setBusy(false); dirty(); } }
+  function setBusy(busy) { for (const id of ["dynamic-run", "dynamic-quick-run"]) { $(id).disabled = busy; $(id).textContent = busy ? "Simulating…" : "Run comparison →"; } }
+  function metric(title, baseline, ccn, foot, primary = false, suffix = "") { const node = el("div", `overview-card${primary ? " primary-card" : ""}`); node.append(el("h4", "", title)); for (const [key, label, value] of [["baseline", "Baseline", baseline], ["ccn", "CCN", ccn]]) { const number = el("div", `overview-value ${key}`, `${fmt(value)}${suffix}`); number.append(el("small", "", label)); node.append(number); } node.append(el("p", "", foot)); return node; }
   function renderResults() {
     const data = state.lastRun, s = data.scenario || state.submitted, b = data.baseline.summary, c = data.ccn.summary;
-    $("dynamic-empty").hidden = true; $("dynamic-output").hidden = false;
-    $("dynamic-run-name").textContent = s.name;
-    $("dynamic-run-subtitle").textContent = `${s.hospitals.length} hospitals · ${s.patients.length} patients · ${s.snfs.length} SNFs · ${s.beds.length} beds · ${fmt(s.horizon_hours)} h window`;
-    const solver = data.ccn.solver;
-    $("dynamic-solver-note").hidden = !solver || solver.status === "optimal";
-    $("dynamic-solver-note").textContent = solver && solver.status !== "optimal" ? `Search limit reached after ${fmt(solver.nodes)} nodes. CCN shows the best feasible plan found; global optimality is not established.` : "";
-    const savings = data.comparison.blocked_bed_hours_saved;
-    const savedLabel = savings < 0 ? `${fmt(Math.abs(savings))} more with CCN` : `${fmt(savings)} fewer with CCN`;
-    $("dynamic-metrics").replaceChildren(
-      metric("Hospital waiting · bed-hours", b.blocked_bed_hours, c.blocked_bed_hours, savedLabel, " h"),
-      metric("Admitted by window end", b.placed_count, c.placed_count, `${fmt(b.waiting_count)} baseline / ${fmt(c.waiting_count)} CCN still waiting`),
-      metric("SNF bed utilization", b.snf_utilization == null ? null : 100 * b.snf_utilization, c.snf_utilization == null ? null : 100 * c.snf_utilization, "Occupied bed-hours ÷ capacity-hours", "%")
-    );
-    const fullCohortUnavailable = b.full_plan_wait_hours == null || c.full_plan_wait_hours == null;
-    const summary = el("p", "small-note");
-    summary.textContent = `Full-plan total waiting, including admissions after the window: baseline ${fmt(b.full_plan_wait_hours)} h; CCN ${fmt(c.full_plan_wait_hours)} h. ` + (fullCohortUnavailable
-      ? `${solver?.status === "optimal" ? "Optimal waiting" : "CCN plans to minimize waiting"} for patients with compatible beds; full-cohort eventual waiting is undefined.`
-      : `CCN plans to minimize this full-cohort objective.${solver?.status === "optimal" ? " Optimal for the supplied simplified scenario." : ""}`);
-    $("dynamic-metrics").append(summary); summary.style.gridColumn = "1 / -1";
-    const impossible = new Set([...(b.structurally_unplaceable_patient_ids || []), ...(c.structurally_unplaceable_patient_ids || [])]);
-    if (impossible.size) { const warning = el("p", "dynamic-editor-warning", `No compatible eligible bed exists for: ${[...impossible].join(", ")}. These patients remain waiting; a full-cohort eventual waiting total is undefined (—).`); warning.style.gridColumn = "1 / -1"; $("dynamic-metrics").append(warning); }
-    $("dynamic-time").max = s.horizon_hours; $("dynamic-time").step = Math.min(0.25, s.horizon_hours / 100); $("dynamic-time").value = 0;
-    $("dynamic-range-end").textContent = clock(s.horizon_hours, true);
-    const assumptions = $("dynamic-assumptions"); assumptions.replaceChildren();
-    for (const text of data.assumptions || []) assumptions.append(el("li", "", text));
-    renderJourneys(); renderPlacements(); renderEvents(); renderPlayback();
+    state.patientIndex = new Map(s.patients.map((p, i) => [p.id, i])); state.maps = Object.fromEntries(["baseline", "ccn"].map(key => [key, new Map(data[key].patients.map(p => [p.patient_id, p]))]));
+    $("dynamic-empty").hidden = true; $("dynamic-output").hidden = false; $("dynamic-run-name").textContent = `PLAYING: ${s.name}`; $("dynamic-run-subtitle").textContent = summary(s);
+    const savings = data.comparison.blocked_bed_hours_saved; $("dynamic-metrics").replaceChildren(metric("WAITING AFTER READY / FULL OBSERVATION WINDOW", b.blocked_bed_hours, c.blocked_bed_hours, `${fmt(Math.abs(savings))} ${savings < 0 ? "more" : "fewer"} hospital bed-hours with CCN`, true, " h"), metric("ADMITTED BY WINDOW END", b.placed_count, c.placed_count, `${b.waiting_count} baseline / ${c.waiting_count} CCN still waiting`), metric("SNF CAPACITY USED", b.snf_utilization == null ? null : b.snf_utilization * 100, c.snf_utilization == null ? null : c.snf_utilization * 100, "Occupied bed-hours / available capacity-hours", false, "%"));
+    const descriptions = []; for (const key of ["baseline", "ccn"]) { const solver = data[key].solver; if (!solver) continue; const label = key === "baseline" ? "Local planning subproblems" : "CCN joint planning", status = solver.status === "optimal" ? "optimal for the supplied simplified problem" : solver.status === "search_limited" ? "best feasible plan found within the search budget; optimality is unproven" : "feasible heuristic plan; optimality is unproven"; descriptions.push(`${label}: ${status}.`); }
+    descriptions.push(`Eventual waiting including plans after this window: baseline ${fmt(b.full_plan_wait_hours)} h; CCN ${fmt(c.full_plan_wait_hours)} h. A dash means at least one patient has no compatible bed.`);
+    $("dynamic-solver-note").textContent = descriptions.join(" "); $("dynamic-solver-note").className = `solver-note${data.ccn.solver && data.ccn.solver.status !== "optimal" ? " warning" : ""}`;
+    $("dynamic-time").max = s.horizon_hours; $("dynamic-time").step = Math.min(0.25, s.horizon_hours / 100); $("dynamic-time").value = 0; $("dynamic-range-end").textContent = clock(s.horizon_hours);
+    const filter = $("dynamic-hospital-filter"); filter.replaceChildren(); const all = el("option", "", "All hospitals"); all.value = ""; filter.append(all); for (const hospital of s.hospitals) { const option = el("option", "", hospital.id); option.value = hospital.id; filter.append(option); } const snfFilter = $("dynamic-snf-filter"); snfFilter.replaceChildren(); const allSnfs = el("option", "", "All SNFs"); allSnfs.value = ""; snfFilter.append(allSnfs); for (const snf of s.snfs) { const option = el("option", "", snf.id); option.value = snf.id; snfFilter.append(option); } $("dynamic-patient-search").value = ""; $("dynamic-patient-options").replaceChildren(); for (const patient of s.patients) { const option = el("option"); option.value = patient.id; option.label = patient.hospital_id; $("dynamic-patient-options").append(option); }
+    $("dynamic-assumptions").replaceChildren(); for (const text of data.assumptions || []) $("dynamic-assumptions").append(el("li", "", text));
+    $("dynamic-table-search").value = ""; $("dynamic-placement-table").replaceChildren(); $("dynamic-journeys").replaceChildren(); $("dynamic-events").replaceChildren(); buildScenes(); renderPlayback(); renderSecondary();
   }
-  function snapshotAt(result, hour) {
-    const snapshots = result.snapshots || []; let current = snapshots[0] || { waiting_count: 0, occupied_count: 0, completed_count: 0, hospital_waiting: {}, snf_occupied: {}, bed_occupants: {}, waiting_patient_ids: [] };
-    for (const snapshot of snapshots) { if (snapshot.time_hour <= hour + 1e-8) current = snapshot; else break; }
-    return current;
+  function svgNode(tag, attributes = {}) { const node = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value); return node; }
+  function icon(kind, occupied = false) { const node = svgNode("svg", { viewBox: "0 0 32 28", "aria-hidden": "true", focusable: "false" }); if (kind === "person") { node.setAttribute("viewBox", "0 0 20 28"); node.append(svgNode("circle", { cx: "10", cy: "5", r: "4" }), svgNode("path", { d: "M7 11h6c3 0 4 2 4 5v4h-3v8h-3v-8H9v8H6v-8H3v-4c0-3 1-5 4-5z" })); } else if (kind === "bed") { node.append(svgNode("path", { d: "M3 8v17M29 13v12M3 20h26M7 12h17c3 0 5 2 5 5v3H7z", fill: "none", stroke: "currentColor", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" })); if (occupied) { node.append(svgNode("circle", { cx: "9", cy: "9", r: "3", fill: "currentColor" }), svgNode("path", { d: "M13 11h10c2 0 3 1 3 3v3H13z", fill: "currentColor", opacity: ".7" })); } else node.append(svgNode("rect", { x: "6", y: "9", width: "7", height: "6", rx: "1", fill: "none", stroke: "currentColor" })); } else { node.classList.add("building-icon"); node.append(svgNode("path", { d: "M5 26V6h22v20M2 26h28M12 26v-7h8v7M10 10h3m6 0h3M10 15h3m6 0h3", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" })); if (kind === "hospital") node.append(svgNode("path", { d: "M16 0v8m-4-4h8", fill: "none", stroke: "currentColor", "stroke-width": "2" })); } return node; }
+  function color(id) { let hash = 0; for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0; return `hsl(${hash * 137.508 % 360} 48% 38%)`; }
+  function patientToken(patient, future = false) { const node = button("", `patient-token${future ? " future" : ""}${state.selected?.type === "patient" && state.selected.id === patient.id ? " selected" : ""}${state.search && !patient.id.toLowerCase().includes(state.search.toLowerCase()) ? " search-muted" : ""}`, () => selectPatient(patient.id), `${patient.id} · ${patient.hospital_id} · ${future ? `ready ${clock(patient.ready_hour)}` : "waiting in hospital"}`); node.style.setProperty("--patient-color", color(patient.id)); node.append(icon("person"), el("span", "", patient.id)); node.dataset.patient = patient.id; return node; }
+  function runScenario() { return state.lastRun.scenario || state.submitted; }
+  function snapshotAt(result, hour) { const snapshots = result.snapshots || []; let low = 0, high = snapshots.length - 1, found = null; while (low <= high) { const middle = (low + high) >> 1; if (snapshots[middle].time_hour <= hour + 1e-8) { found = snapshots[middle]; low = middle + 1; } else high = middle - 1; } return found || { waiting_count: 0, occupied_count: 0, completed_count: 0, hospital_waiting: {}, snf_occupied: {}, bed_occupants: {}, waiting_patient_ids: [] }; }
+  function currentStatus(p, hour = state.hour) { if (!p) return "Unknown"; if (hour + 1e-8 < p.ready_hour) return "Not ready yet"; if (p.planned_admission_hour == null || hour + 1e-8 < p.planned_admission_hour) return "Waiting in hospital"; if (hour + 1e-8 < p.planned_release_hour) return "In SNF"; return "SNF stay complete"; }
+  function waitAt(p, hour = state.hour) { return Math.max(0, Math.min(hour, p.planned_admission_hour ?? hour) - p.ready_hour); }
+  function buildScenes() { $("dynamic-scene-pair").replaceChildren(); state.scenes = {}; for (const key of ["baseline", "ccn"]) { const scene = el("article", `strategy-scene ${key}`), head = el("div", "strategy-header"), heading = el("div", "strategy-heading"), title = el("div"); title.append(el("h3", "", key === "baseline" ? "Baseline · each hospital" : "CCN · whole network"), el("p", "", key === "baseline" ? runScenario().baseline_policy === "fcfs" ? "Online FCFS · currently ready patients only" : "Plans ahead for its own patients · shared SNFs use FCFS" : "Sees every hospital’s supplied future demand")); heading.append(el("span", "strategy-index", key === "baseline" ? "01" : "02"), title); head.append(heading, el("span", "strategy-label", "SAME DEMAND / SAME BEDS")); const metrics = el("div", "scene-live-metrics"), world = el("div", "scene-world"), content = el("div", "world-content"), movement = el("div", "movement-layer"), exit = el("div", "scene-exit"), recent = el("div", "recent-events"); content.style.display = "contents"; movement.setAttribute("aria-hidden", "true"); world.append(content, movement); scene.append(head, metrics, world, exit, recent); $("dynamic-scene-pair").append(scene); state.scenes[key] = { scene, metrics, world, content, movement, exit, recent, patientNodes: new Map(), bedNodes: new Map(), hospitalNodes: new Map() }; } }
+  function renderWorld(key) {
+    const refs = state.scenes[key], s = runScenario(), result = state.lastRun[key], snap = snapshotAt(result, state.hour), waitingIds = new Set(snap.waiting_patient_ids || []), blocked = result.patients.reduce((total, p) => total + waitAt(p), 0); refs.patientNodes.clear(); refs.bedNodes.clear(); refs.hospitalNodes.clear(); refs.metrics.replaceChildren(); for (const [value, caption] of [[snap.waiting_count, "Hospital beds blocked now"], [blocked, "Accumulated waiting · bed-hours"], [`${snap.occupied_count}/${s.beds.length}`, "SNF beds occupied now"]]) { const metric = el("div", "", caption); metric.prepend(el("strong", "", fmt(value) === "—" ? value : fmt(value))); refs.metrics.append(metric); }
+    const hospitals = el("div", "world-column"), hospitalsTitle = el("div", "world-column-title", "Hospitals"); hospitalsTitle.append(el("span", "", "NETWORK COUNTS ABOVE")); hospitals.append(hospitalsTitle);
+    for (const hospital of s.hospitals.filter(h => !state.hospitalFilter || h.id === state.hospitalFilter)) { const node = el("section", "hospital-node"), title = el("div", "facility-title"), label = el("span", "", hospital.id); label.prepend(icon("hospital")); const cohort = s.patients.filter(p => p.hospital_id === hospital.id), waiting = cohort.filter(p => waitingIds.has(p.id)).sort((a, b) => a.ready_hour - b.ready_hour), future = cohort.filter(p => p.ready_hour > state.hour + 1e-8); title.append(label, el("span", "facility-counter", `${waiting.length} waiting`)); node.append(title); refs.hospitalNodes.set(hospital.id, node); const caption = el("div", "ward-caption", "Ready to leave"); caption.append(el("span", "", waiting.length ? "Bed still occupied" : "No blocked beds")); node.append(caption); const ready = el("div", "waiting-group"), expandKey = `${key}:${hospital.id}:waiting`, shown = state.expandedWards.has(expandKey) ? waiting : waiting.slice(0, 24); for (const p of shown) { const token = patientToken(p); refs.patientNodes.set(p.id, token); ready.append(token); } if (!waiting.length) ready.append(el("span", "ward-empty", "All ready patients have left")); if (waiting.length > shown.length) ready.append(button(`+${waiting.length - shown.length} more`, "more-patients", () => { state.expandedWards.add(expandKey); renderPlayback(); }, `Show all waiting patients in ${hospital.id}`)); node.append(ready); const futureCaption = el("div", "ward-caption", "Not ready yet"); futureCaption.append(el("span", "", `${future.length} planned`)); node.append(futureCaption); const upcoming = el("div", "upcoming-group"), futureKey = `${key}:${hospital.id}:future`, shownFuture = state.expandedWards.has(futureKey) ? future : future.slice(0, 5); for (const p of shownFuture) { const token = patientToken(p, true); refs.patientNodes.set(p.id, token); upcoming.append(token); } if (future.length > shownFuture.length) upcoming.append(button(`+${future.length - shownFuture.length}`, "more-patients", () => { state.expandedWards.add(futureKey); renderPlayback(); }, `Show future patients in ${hospital.id}`)); if (!future.length) upcoming.append(el("span", "ward-empty", "No future arrivals")); node.append(upcoming); hospitals.append(node); }
+    if (!s.hospitals.length) hospitals.append(el("p", "no-entities", "No hospitals")); const snfs = el("div", "world-column"); snfs.append(el("div", "world-column-title", "Skilled nursing facilities")); const grid = el("div", "snf-grid"); for (const snf of s.snfs.filter(f => !state.snfFilter || f.id === state.snfFilter)) { const node = el("section", "snf-node"), title = el("div", "facility-title"), label = el("span", "", snf.id); label.prepend(icon("snf")); title.append(label); node.append(title); const beds = s.beds.filter(b => b.snf_id === snf.id); node.append(el("p", "snf-capacity", `${snap.snf_occupied?.[snf.id] || 0} / ${beds.length} occupied`)); const bedGrid = el("div", "bed-grid"); for (const bed of beds) { const occupant = snap.bed_occupants?.[bed.id], p = occupant ? s.patients[state.patientIndex.get(occupant)] : null, selected = state.selected?.type === "bed" && state.selected.id === bed.id || state.selected?.type === "patient" && state.selected.id === occupant, tile = button("", `bed-tile${occupant ? " occupied" : ""}${selected ? " selected" : ""}${state.hospitalFilter && p && p.hospital_id !== state.hospitalFilter ? " other-hospital" : ""}`, () => { state.selected = { type: "bed", id: bed.id }; renderPlayback(); }, `${bed.id} · ${snf.id} · ${occupant || "Empty"} · ${bed.gender} · ${(bed.capabilities || []).join(", ") || "no special care"}`); tile.style.setProperty("--patient-color", occupant ? color(occupant) : "#9cafaa"); tile.append(icon("bed", Boolean(occupant)), el("span", occupant ? "bed-patient-id" : "bed-empty-label", occupant || "Empty"), el("span", "bed-id", bed.id)); tile.dataset.bed = bed.id; if (occupant) tile.dataset.patient = occupant; bedGrid.append(tile); refs.bedNodes.set(bed.id, tile); } if (!beds.length) bedGrid.append(el("span", "ward-empty", "No beds")); node.append(bedGrid); grid.append(node); } snfs.append(grid); if (!s.snfs.length) snfs.append(el("p", "no-entities", "No SNFs")); refs.content.replaceChildren(hospitals, el("div", "world-road"), snfs);
+    refs.exit.replaceChildren(el("span", "", "↗ Left SNF / completed"), el("strong", "", `${snap.completed_count} patients`)); const events = (result.events || []).filter(e => e.time_hour <= state.hour + 1e-8 && ["admit", "release", "request_rejected"].includes(e.type)).slice(-2); refs.recent.replaceChildren(); for (const event of events) { const line = el("div", "", `${clock(event.time_hour)} · ${event.patient_id} ${event.type === "admit" ? `→ ${event.snf_id} / ${event.bed_id}` : event.type === "release" ? `left ${event.snf_id}; bed released` : `request to ${event.snf_id} not accepted`}`); refs.recent.append(line); } if (!events.length) refs.recent.append(el("span", "", "Admissions and bed releases appear here as time advances."));
   }
-  function renderPlayback() {
-    if (!state.lastRun) return;
-    const s = state.lastRun.scenario || state.submitted, live = $("dynamic-live-state"), grid = $("dynamic-bed-grid"); live.replaceChildren(); grid.replaceChildren();
-    $("dynamic-clock").textContent = clock(state.hour, true); $("dynamic-time").value = state.hour;
-    for (const key of ["baseline", "ccn"]) {
-      const result = state.lastRun[key], snap = snapshotAt(result, state.hour);
-      const counts = el("div"); counts.append(el("strong", "", key === "baseline" ? "Baseline" : "CCN"), document.createTextNode(`${snap.waiting_count} waiting · ${snap.occupied_count} in SNF · ${snap.completed_count} completed`)); live.append(counts);
-      const col = el("div"); col.append(el("h4", `occupancy-heading ${key}`, key === "baseline" ? "Baseline · bed occupancy" : "CCN · bed occupancy"));
-      for (const facility of s.snfs) {
-        const block = el("div", "snf-block"), beds = s.beds.filter(b => b.snf_id === facility.id), heading = el("div", "snf-heading");
-        heading.append(el("span", "", facility.id), el("span", "", `${snap.snf_occupied?.[facility.id] || 0}/${beds.length} occupied`)); block.append(heading);
-        beds.forEach(bed => {
-          const occupant = snap.bed_occupants?.[bed.id], cell = el("div", `bed-cell ${key}${occupant ? " occupied" : ""}`), label = el("span", "", bed.id);
-          label.append(el("small", "", bed.gender === "any" ? "Any gender" : bed.gender === "male" ? "Male bed" : "Female bed")); cell.append(label, el("strong", "", occupant || "Available")); block.append(cell);
-        });
-        if (!beds.length) block.append(el("p", "no-entities", "No beds")); col.append(block);
-      }
-      const waiting = el("div", "hospital-wait");
-      for (const hospital of s.hospitals) waiting.append(el("div", "", `${hospital.id}: ${snap.hospital_waiting?.[hospital.id] || 0} waiting`));
-      if (snap.waiting_patient_ids?.length) waiting.append(el("p", "waiting-tags", snap.waiting_patient_ids.join(" · "))); col.append(waiting); grid.append(col);
-    }
-    for (const cursor of $("dynamic-journeys").querySelectorAll(".journey-cursor")) cursor.style.left = `${Math.min(100, state.hour / s.horizon_hours * 100)}%`;
-    $("dynamic-previous").disabled = state.hour <= 0; $("dynamic-next").disabled = state.hour >= s.horizon_hours;
+  function center(node) { if (!node) return null; const rect = node.getBoundingClientRect(); return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; }
+  function renderPlayback(previousHour = state.hour, animate = false) {
+    if (!state.lastRun) return; const s = runScenario(), flights = [];
+    if (animate && state.hour > previousHour && !matchMedia("(prefers-reduced-motion: reduce)").matches) for (const key of ["baseline", "ccn"]) { const refs = state.scenes[key], events = state.lastRun[key].events.filter(e => e.time_hour > previousHour + 1e-8 && e.time_hour <= state.hour + 1e-8 && ["admit", "release"].includes(e.type)); for (const event of events) { const source = event.type === "release" ? refs.bedNodes.get(event.bed_id) : refs.patientNodes.get(event.patient_id) || refs.hospitalNodes.get(event.hospital_id); flights.push({ key, event, start: center(source) }); } }
+    $("dynamic-clock").textContent = clock(state.hour); $("dynamic-hour").textContent = `${fmt(state.hour)} h / ${fmt(s.horizon_hours)} h`; $("dynamic-time").value = state.hour; for (const key of ["baseline", "ccn"]) renderWorld(key); renderInspector();
+    const shown = flights.length > 20 ? [...flights.filter(f => f.key === "baseline").slice(0, 10), ...flights.filter(f => f.key === "ccn").slice(0, 10)] : flights; for (const flight of shown) animateTransfer(flight); $("dynamic-flight-note").textContent = flights.length > shown.length ? `${flights.length} transfers in this time step; showing ${shown.length} motions. Slow playback or step events for detail.` : "Click a patient or a bed to inspect both strategies.";
+    for (const cursor of $("dynamic-journeys").querySelectorAll(".journey-cursor")) cursor.style.left = `${Math.min(100, state.hour / s.horizon_hours * 100)}%`; $("dynamic-previous").disabled = state.hour <= 0; $("dynamic-next").disabled = state.hour >= s.horizon_hours;
   }
-  function segment(start, end, horizon, className) {
-    if (start == null || end == null || end <= start || start >= horizon) return null;
-    const bar = el("div", `journey-segment ${className}`); bar.style.left = `${Math.max(0, start) / horizon * 100}%`; bar.style.width = `${(Math.min(horizon, end) - Math.max(0, start)) / horizon * 100}%`; return bar;
+  function animateTransfer({ key, event, start }) {
+    const refs = state.scenes[key], target = event.type === "release" ? refs.exit : refs.bedNodes.get(event.bed_id), finish = center(target), rect = refs.world.getBoundingClientRect(); if (!finish) return; if (!start) start = center(refs.hospitalNodes.get(event.hospital_id)); if (!start) return;
+    const x1 = start.x - rect.left, y1 = start.y - rect.top, x2 = finish.x - rect.left, y2 = finish.y - rect.top, midX = (x1 + x2) / 2, midY = (y1 + y2) / 2 - Math.min(35, Math.abs(x2 - x1) * .12), trail = svgNode("svg", { class: "flight-trail", "aria-hidden": "true" }), path = svgNode("path", { d: `M${x1} ${y1} Q${midX} ${midY - 20} ${x2} ${y2}` }); path.style.stroke = color(event.patient_id); trail.append(path); const token = el("div", `flight-person${event.type === "release" ? " release" : ""}`); token.style.setProperty("--patient-color", color(event.patient_id)); token.append(icon("person"), el("span", "", event.patient_id)); refs.movement.append(trail, token);
+    const duration = 1000, animation = token.animate([{ transform: `translate(${x1 - 15}px,${y1 - 20}px)`, opacity: 0, offset: 0 }, { transform: `translate(${x1 - 15}px,${y1 - 20}px)`, opacity: 1, offset: .08 }, { transform: `translate(${midX - 15}px,${midY - 20}px)`, opacity: 1, offset: .5 }, { transform: `translate(${x2 - 15}px,${y2 - 20}px)`, opacity: 1, offset: .88 }, { transform: `translate(${x2 - 15}px,${y2 - 20}px)`, opacity: 0, offset: 1 }], { duration, easing: "ease-in-out", fill: "forwards" }); animation.finished.then(() => { token.remove(); trail.remove(); }).catch(() => { token.remove(); trail.remove(); });
   }
-  function renderJourneys() {
-    const root = $("dynamic-journeys"), data = state.lastRun, s = data.scenario || state.submitted, h = s.horizon_hours; root.replaceChildren();
-    const axis = el("div", "journey-axis"); [0, h / 3, h * 2 / 3, h].forEach(t => axis.append(el("span", "", `${fmt(t)} h`))); root.append(axis);
-    const maps = Object.fromEntries(["baseline", "ccn"].map(key => [key, new Map(data[key].patients.map(p => [p.patient_id, p]))]));
-    for (const p of s.patients) {
-      const row = el("div", "journey-patient"), label = el("div", "journey-patient-id", p.id); label.append(el("small", "", clock(p.ready_hour))); row.append(label); const lanes = el("div");
-      for (const key of ["baseline", "ccn"]) {
-        const plan = maps[key].get(p.id), lane = el("div", `journey-track ${key}`); if (!plan) continue;
-        const admit = plan.planned_admission_hour, release = plan.planned_release_hour;
-        const waiting = segment(p.ready_hour, admit ?? h, h, "waiting"), stay = segment(admit, release, h, `stay ${key}`);
-        if (waiting) lane.append(waiting); if (stay) lane.append(stay);
-        lane.title = `${key === "ccn" ? "CCN" : "Baseline"} ${p.id}: ready ${clock(p.ready_hour)}, admission ${clock(admit)}, release ${clock(release)}; waiting ${fmt(plan.wait_hours)} h`;
-        lane.append(el("span", "", `${key === "ccn" ? "CCN" : "Baseline"} · ${admit == null ? "no compatible bed" : `${fmt(plan.wait_hours)} h wait`}`), el("div", "journey-cursor")); lanes.append(lane);
-      }
-      row.append(lanes); root.append(row);
-    }
-    if (!s.patients.length) root.append(el("p", "no-entities", "No patients in this scenario."));
+  function selectPatient(id) { state.selected = { type: "patient", id }; state.hospitalFilter = ""; state.snfFilter = ""; $("dynamic-hospital-filter").value = ""; $("dynamic-snf-filter").value = ""; state.search = id; $("dynamic-patient-search").value = id; renderPlayback(); }
+  function detailList(values) { const dl = el("dl"); for (const [caption, value] of values) dl.append(el("dt", "", caption), el("dd", "", value)); return dl; }
+  function renderInspector() {
+    const root = $("dynamic-inspector"); root.replaceChildren(); root.hidden = !state.selected; if (!state.selected) return; const s = runScenario(), head = el("div", "inspector-top"), title = el("div"), close = button("×", "icon-button", () => { state.selected = null; renderPlayback(); }, "Close details"); head.append(title, close); root.append(head);
+    if (state.selected.type === "patient") { const p = s.patients.find(p => p.id === state.selected.id); if (!p) return; title.append(el("span", "section-kicker", `PATIENT / ${p.hospital_id}`), el("h3", "", p.id), el("p", "", `${p.gender} · ready ${clock(p.ready_hour, true)} · SNF stay ${fmt(p.length_of_stay_hours)} h`)); const badges = el("div", "inspector-badges"); badges.append(el("span", "detail-badge", `Insurance: ${p.insurance_type || "unspecified"}`)); for (const care of p.required_capabilities || []) badges.append(el("span", "detail-badge", CARE_LABELS[care] || care)); if (!p.required_capabilities?.length) badges.append(el("span", "detail-badge", "No special care required")); root.append(badges, el("p", "", `Eligible SNFs in preference order: ${p.eligible_snf_ids.join(" → ") || "none"}`)); const compare = el("div", "inspector-comparison"); for (const key of ["baseline", "ccn"]) { const plan = state.maps[key].get(p.id), col = el("div"); col.append(el("h4", `strategy-badge ${key}`, key === "baseline" ? "Baseline" : "CCN")); col.append(detailList([["At this moment", currentStatus(plan)], ["Waiting so far", `${fmt(waitAt(plan))} bed-hours`], ["SNF / bed", plan.bed_id ? `${plan.snf_id} / ${plan.bed_id}` : "No compatible placement"], ["Admission plan", clock(plan.planned_admission_hour, true)], ["Release plan", clock(plan.planned_release_hour, true)], ["Full waiting", `${fmt(plan.wait_hours)} h`]])); compare.append(col); } root.append(compare); }
+    else { const bed = s.beds.find(b => b.id === state.selected.id); if (!bed) return; const snf = s.snfs.find(f => f.id === bed.snf_id); title.append(el("span", "section-kicker", `BED / ${bed.snf_id}`), el("h3", "", bed.id), el("p", "", `${bed.gender === "any" ? "Any gender" : bed.gender} · insurance accepted: ${(snf.accepted_insurances || ["*"]).join(", ") || "none"}`)); root.append(el("p", "", `Care capabilities: ${(bed.capabilities || []).map(c => CARE_LABELS[c] || c).join(", ") || "none"}`)); const compare = el("div", "inspector-comparison"); for (const key of ["baseline", "ccn"]) { const snap = snapshotAt(state.lastRun[key], state.hour), occupant = snap.bed_occupants?.[bed.id], col = el("div"); col.append(el("h4", `strategy-badge ${key}`, key === "baseline" ? "Baseline" : "CCN")); if (occupant) { const plan = state.maps[key].get(occupant); col.append(button(`Inspect ${occupant} →`, "text-button", () => selectPatient(occupant)), detailList([["Hospital", plan.hospital_id], ["Admitted", clock(plan.planned_admission_hour)], ["Release plan", clock(plan.planned_release_hour)]])); } else col.append(el("p", "", "Empty and available at this moment.")); compare.append(col); } root.append(compare); }
   }
-  function table(headers) {
-    const node = el("table", "result-table"), head = el("thead"), row = el("tr"); headers.forEach(h => row.append(el("th", "", h))); head.append(row); node.append(head); const body = el("tbody"); node.append(body); return [node, body];
-  }
-  function renderPlacements() {
-    const data = state.lastRun, s = data.scenario || state.submitted, [node, body] = table(["Patient / strategy", "Bed", "Admission → release", "Wait", "At window end"]);
-    const maps = Object.fromEntries(["baseline", "ccn"].map(key => [key, new Map(data[key].patients.map(p => [p.patient_id, p]))]));
-    for (const patient of s.patients) for (const key of ["baseline", "ccn"]) {
-      const p = maps[key].get(patient.id); if (!p) continue;
-      const row = el("tr"), name = el("td", "", p.patient_id); name.append(el("span", `assignment-detail strategy-badge ${key}`, key === "baseline" ? "Baseline" : "CCN"));
-      const bed = el("td", "", p.bed_id || "—"); bed.append(el("span", "assignment-detail", p.snf_id || "No compatible bed"));
-      const timing = el("td", "", `${clock(p.planned_admission_hour)} → ${clock(p.planned_release_hour)}`);
-      if (p.planned_admission_hour > s.horizon_hours) timing.append(el("span", "assignment-detail", "Admission planned beyond window"));
-      else if (p.planned_release_hour > s.horizon_hours) timing.append(el("span", "assignment-detail", "Release planned beyond window"));
-      const wait = el("td", "", `${fmt(p.wait_hours)} h`); wait.append(el("span", "assignment-detail", `${fmt(p.wait_in_window_hours)} h in window`));
-      const status = el("td", p.status === "waiting" ? "unplaced" : "", ({ waiting: "Waiting in hospital", in_snf: "In SNF", completed: "SNF stay complete" })[p.status] || p.status);
-      row.append(name, bed, timing, wait, status); body.append(row);
-    }
-    $("dynamic-placement-table").replaceChildren(node);
-  }
-  function renderEvents() {
-    if (!state.lastRun) return;
-    const filter = $("dynamic-log-strategy").value, [node, body] = table(["Time", "Strategy", "Event", "Patient / bed"]);
-    const entries = [];
-    for (const key of ["baseline", "ccn"]) if (filter === "both" || key === filter) (state.lastRun[key].events || []).forEach((e, index) => entries.push({ ...e, key, index }));
-    entries.sort((a, b) => a.time_hour - b.time_hour || a.key.localeCompare(b.key) || a.index - b.index);
-    for (const entry of entries) {
-      const row = el("tr"), time = el("td", "event-time", clock(entry.time_hour)); time.append(el("span", "assignment-detail", `${fmt(entry.time_hour)} h`));
-      const detail = el("td", "", ({ ready: "Patient ready", admit: "SNF admission", release: "Bed released", wait: "Waiting" })[entry.type] || entry.type);
-      if (entry.detail) detail.append(el("span", "assignment-detail", entry.detail));
-      const target = el("td", "", entry.patient_id || "—"); target.append(el("span", "assignment-detail", [entry.hospital_id, entry.snf_id, entry.bed_id].filter(Boolean).join(" · ")));
-      row.append(time, el("td", `strategy-badge ${entry.key}`, entry.key === "ccn" ? "CCN" : "Baseline"), detail, target); body.append(row);
-    }
-    $("dynamic-events").replaceChildren(node);
-    if (!entries.length) $("dynamic-events").append(el("p", "no-entities", "No events in this observation window."));
-  }
-  function stopPlayback() { if (state.playing) clearInterval(state.playing); state.playing = null; $("dynamic-play").textContent = "Play"; $("dynamic-play").setAttribute("aria-pressed", "false"); }
-  function jumpEvent(direction) {
-    if (!state.lastRun) return; stopPlayback(); const h = (state.lastRun.scenario || state.submitted).horizon_hours;
-    const times = [...new Set([0, h, ...["baseline", "ccn"].flatMap(key => state.lastRun[key].events.map(e => e.time_hour))])].sort((a, b) => a - b);
-    state.hour = direction > 0 ? times.find(t => t > state.hour + 1e-8) ?? h : times.filter(t => t < state.hour - 1e-8).at(-1) ?? 0; renderPlayback();
-  }
+  function table(headers) { const node = el("table", "result-table"), head = el("thead"), row = el("tr"); headers.forEach(h => row.append(el("th", "", h))); head.append(row); node.append(head); const body = el("tbody"); node.append(body); return [node, body]; }
+  function filteredPatients() { const query = $("dynamic-table-search").value.toLowerCase(); return runScenario().patients.filter(p => `${p.id} ${p.hospital_id}`.toLowerCase().includes(query)); }
+  function tablePagePatients() { const filtered = filteredPatients(); state.tablePage = Math.min(state.tablePage, Math.max(0, Math.ceil(filtered.length / TABLE_PAGE) - 1)); return filtered.slice(state.tablePage * TABLE_PAGE, state.tablePage * TABLE_PAGE + TABLE_PAGE); }
+  function renderPlacements() { if (!state.lastRun) return; const s = runScenario(), filtered = filteredPatients(), [node, body] = table(["Patient / strategy", "Insurance / care", "SNF / bed", "Planned admission → release", "Waiting", "At window end"]); for (const patient of tablePagePatients()) for (const key of ["baseline", "ccn"]) { const p = state.maps[key].get(patient.id), row = el("tr"), name = el("td"); name.append(button(p.patient_id, "text-button", () => selectPatient(p.patient_id)), el("span", `assignment-detail strategy-badge ${key}`, key === "baseline" ? "Baseline" : "CCN"), el("span", "assignment-detail", p.hospital_id)); const care = el("td", "", patient.insurance_type || "unspecified"); care.append(el("span", "assignment-detail", (patient.required_capabilities || []).join(", ") || "No special care")); const bed = el("td", "", p.bed_id || "—"); bed.append(el("span", "assignment-detail", p.snf_id || "No compatible bed")); const timing = el("td", "", `${clock(p.planned_admission_hour)} → ${clock(p.planned_release_hour)}`); if (p.planned_admission_hour > s.horizon_hours) timing.append(el("span", "assignment-detail", "Admission beyond observation window")); else if (p.planned_release_hour > s.horizon_hours) timing.append(el("span", "assignment-detail", "Release beyond observation window")); const wait = el("td", "", `${fmt(p.wait_hours)} h`); wait.append(el("span", "assignment-detail", `${fmt(p.wait_in_window_hours)} h inside window`)); row.append(name, care, bed, timing, wait, el("td", "", ({ waiting: "Waiting in hospital", in_snf: "In SNF", completed: "SNF stay complete" })[p.status] || p.status)); body.append(row); } $("dynamic-placement-table").replaceChildren(node); $("dynamic-table-count").textContent = `${filtered.length} patients`; $("dynamic-table-pages").replaceChildren(pagination(state.tablePage, filtered.length, TABLE_PAGE, page => { state.tablePage = page; renderSecondary(); })); }
+  function segment(start, end, horizon, className) { if (start == null || end == null || end <= start || start >= horizon) return null; const node = el("div", `journey-segment ${className}`); node.style.left = `${Math.max(0, start) / horizon * 100}%`; node.style.width = `${(Math.min(horizon, end) - Math.max(0, start)) / horizon * 100}%`; return node; }
+  function renderJourneys() { if (!state.lastRun) return; const root = $("dynamic-journeys"), s = runScenario(), h = s.horizon_hours; root.replaceChildren(); for (const p of tablePagePatients()) { const row = el("div", "journey-patient"), label = el("div", "journey-patient-id", p.id); label.append(el("small", "", clock(p.ready_hour))); row.append(label); const lanes = el("div"); for (const key of ["baseline", "ccn"]) { const plan = state.maps[key].get(p.id), lane = el("div", `journey-track ${key}`), waiting = segment(p.ready_hour, plan.planned_admission_hour ?? h, h, "waiting"), stay = segment(plan.planned_admission_hour, plan.planned_release_hour, h, `stay ${key}`); if (waiting) lane.append(waiting); if (stay) lane.append(stay); const cursor = el("div", "journey-cursor"); cursor.style.left = `${state.hour / h * 100}%`; lane.append(el("span", "", `${key === "ccn" ? "CCN" : "Baseline"} · ${fmt(plan.wait_hours)} h wait`), cursor); lanes.append(lane); } row.append(lanes); root.append(row); } }
+  function renderEvents() { if (!state.lastRun) return; const filter = $("dynamic-log-strategy").value, [node, body] = table(["Time / request order", "Strategy", "Event", "Patient / facility"]), entries = []; for (const key of ["baseline", "ccn"]) if (filter === "both" || key === filter) state.lastRun[key].events.forEach((e, index) => entries.push({ ...e, key, index })); entries.sort((a, b) => a.time_hour - b.time_hour || a.key.localeCompare(b.key) || a.index - b.index); state.eventPage = Math.min(state.eventPage, Math.max(0, Math.ceil(entries.length / 100) - 1)); for (const entry of entries.slice(state.eventPage * 100, state.eventPage * 100 + 100)) { const row = el("tr"), time = el("td", "", clock(entry.time_hour)); time.append(el("span", "assignment-detail", `${fmt(entry.time_hour)} h${entry.request_order != null ? ` · request #${entry.request_order}` : ""}`)); const event = el("td", "", ({ ready: "Patient ready", admit: "SNF admission", release: "Bed released", wait: "Waiting", request: "Placement request", request_rejected: "Request not accepted" })[entry.type] || entry.type); if (entry.detail) event.append(el("span", "assignment-detail", entry.detail)); const target = el("td", "", entry.patient_id || "—"); target.append(el("span", "assignment-detail", [entry.hospital_id, entry.snf_id, entry.bed_id].filter(Boolean).join(" · "))); row.append(time, el("td", `strategy-badge ${entry.key}`, entry.key === "ccn" ? "CCN" : "Baseline"), event, target); body.append(row); } $("dynamic-events").replaceChildren(node); $("dynamic-event-count").textContent = `${entries.length} events`; $("dynamic-event-pages").replaceChildren(pagination(state.eventPage, entries.length, 100, page => { state.eventPage = page; renderEvents(); })); }
+  function renderSecondary() { if ($("dynamic-placement-details").open) renderPlacements(); if ($("dynamic-journey-details").open) renderJourneys(); if ($("dynamic-event-details").open) renderEvents(); }
+  function stopPlayback() { if (state.playing) clearInterval(state.playing); state.playing = null; $("dynamic-play").textContent = "▶ Play"; $("dynamic-play").setAttribute("aria-pressed", "false"); }
+  function jumpEvent(direction) { if (!state.lastRun) return; stopPlayback(); const previous = state.hour, h = runScenario().horizon_hours, times = [...new Set([0, h, ...["baseline", "ccn"].flatMap(key => state.lastRun[key].events.map(e => e.time_hour))])].sort((a, b) => a - b); state.hour = direction > 0 ? times.find(t => t > state.hour + 1e-8) ?? h : times.filter(t => t < state.hour - 1e-8).at(-1) ?? 0; renderPlayback(previous, direction > 0); }
   function exportJson(value, filename, description) {
-    state.exportText = JSON.stringify(value, null, 2); state.exportName = filename;
-    $("dynamic-export-json").value = state.exportText; $("dynamic-export-description").textContent = description; $("dynamic-export-message").textContent = ""; $("dynamic-export-dialog").showModal();
+    const pretty = JSON.stringify(value, null, 2); state.exportText = pretty.length > 2 * 1024 * 1024 ? JSON.stringify(value) : pretty; state.exportName = filename; state.exportPreviewShortened = state.exportText.length > 120000;
+    $("dynamic-export-json").value = state.exportText.slice(0, 120000); $("dynamic-export-description").textContent = description;
+    const scenario = value.scenario || value; $("dynamic-export-summary").textContent = `${value.results ? "Submitted inputs" : "Draft inputs"}: ${scenario.name} · ${summary(scenario)} · horizon ${fmt(scenario.horizon_hours)} h · tie seed ${scenario.tie_break_seed ?? 42} · complete JSON ${(new Blob([state.exportText]).size / 1024 / 1024).toFixed(2)} MB`;
+    $("dynamic-export-message").textContent = state.exportPreviewShortened ? "Preview shortened. Copy and Download contain the complete JSON." : "Complete JSON preview."; $("dynamic-export-dialog").showModal();
   }
-  function download() {
-    const blob = new Blob([state.exportText], { type: "application/json" }), url = URL.createObjectURL(blob), link = el("a"); link.href = url; link.download = state.exportName; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+  function download() { const blob = new Blob([state.exportText], { type: "application/json" }), url = URL.createObjectURL(blob), link = el("a"); link.href = url; link.download = state.exportName; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   $("dynamic-form").addEventListener("submit", run);
-  $("dynamic-load").addEventListener("click", () => {
-    const example = state.examples[Number($("dynamic-example").value)]; if (!example) return;
-    state.draft = clone(example); dirty(); renderEditor(); message("Example loaded. Run the comparison to update results.");
-  });
+  $("dynamic-config-open").addEventListener("click", () => { stopPlayback(); $("dynamic-config-dialog").showModal(); });
+  $("dynamic-config-close").addEventListener("click", () => $("dynamic-config-dialog").close());
+  $("dynamic-load").addEventListener("click", () => { const example = state.examples[Number($("dynamic-example").value)]; if (!example) return; state.draft = defaultFields(example); state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); message("Example loaded into the draft. Run to update the scene."); showError("dynamic-config-error", ""); });
+  $("dynamic-generator").addEventListener("submit", async event => { event.preventDefault(); if (state.generating) return; const config = Object.fromEntries([...new FormData(event.currentTarget)].map(([key, value]) => [key, Number(value)])); state.generating = true; $("dynamic-generate").disabled = true; $("dynamic-generate").textContent = "Generating…"; showError("dynamic-config-error", ""); try { const result = await api("/api/dynamic/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }); state.draft = defaultFields(result.scenario || result); validate(state.draft); state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); message("Synthetic network generated. Run to compare the strategies."); } catch (error) { showError("dynamic-config-error", error.message); } finally { state.generating = false; $("dynamic-generate").disabled = false; $("dynamic-generate").textContent = "Generate scenario"; } });
   $("dynamic-import").addEventListener("click", () => $("dynamic-import-file").click());
-  $("dynamic-import-file").addEventListener("change", async event => {
-    const file = event.target.files[0]; if (!file) return;
-    try {
-      if (file.size > 2 * 1024 * 1024) throw new Error("Please import a JSON file smaller than 2 MB.");
-      const data = JSON.parse(await file.text()), scenario = data.scenario || (Array.isArray(data.scenarios) ? data.scenarios[0] : data);
-      state.draft = clone(validate(scenario)); dirty(); renderEditor(); showError("dynamic-run-error", ""); message(`Imported ${file.name}. Run to simulate these inputs.${data.scenarios?.length > 1 ? " Loaded the first scenario in the file." : ""}`);
-    } catch (error) { showError("dynamic-run-error", `Import failed: ${error.message}`); }
-    finally { event.target.value = ""; }
-  });
-  $("dynamic-export").addEventListener("click", () => {
-    try { validate(state.draft); exportJson(state.draft, "dynamic-scenario.json", "The current editable scenario, without results."); } catch (error) { showError("dynamic-run-error", error.message); }
-  });
-  $("dynamic-export-run").addEventListener("click", () => {
-    if (state.lastRun) exportJson({ schema_version: 1, exported_at: new Date().toISOString(), run_at: state.runTime, scenario: clone(state.submitted), results: clone(state.lastRun) }, "dynamic-run.json", "Exact inputs submitted for the last successful run, plus its results. Unsaved draft changes are excluded.");
-  });
-  $("dynamic-export-close").addEventListener("click", () => $("dynamic-export-dialog").close());
-  $("dynamic-export-download").addEventListener("click", download);
+  $("dynamic-import-file").addEventListener("change", async event => { const file = event.target.files[0]; if (!file) return; try { if (file.size > 64 * 1024 * 1024) throw new Error("Import a JSON file smaller than 64 MB."); const data = JSON.parse(await file.text()), scenario = defaultFields(data.scenario || (Array.isArray(data.scenarios) ? data.scenarios[0] : data)); validate(scenario); state.draft = scenario; state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); showError("dynamic-config-error", ""); message(`Imported ${file.name}. Run to simulate these inputs.${data.scenarios?.length > 1 ? " Loaded the first scenario in the file." : ""}`); } catch (error) { showError("dynamic-config-error", `Import failed: ${error.message}`); } finally { event.target.value = ""; } });
+  $("dynamic-export").addEventListener("click", () => { try { validate(state.draft); exportJson(state.draft, "dynamic-scenario.json", "The current editable draft scenario, without results."); } catch (error) { showError("dynamic-config-error", error.message); } });
+  $("dynamic-export-run").addEventListener("click", () => { if (state.lastRun) exportJson({ schema_version: 1, exported_at: new Date().toISOString(), run_at: state.runTime, scenario: clone(state.submitted), results: clone(state.lastRun) }, "dynamic-run.json", "Exact inputs submitted for the last completed run plus its results. New draft edits are excluded."); });
+  $("dynamic-export-close").addEventListener("click", () => $("dynamic-export-dialog").close()); $("dynamic-export-download").addEventListener("click", download);
   $("dynamic-export-copy").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(state.exportText); $("dynamic-export-message").textContent = "Copied JSON."; }
-    catch (_) { $("dynamic-export-json").focus(); $("dynamic-export-json").select(); $("dynamic-export-message").textContent = "Copy is unavailable here. The JSON is selected for manual copying."; }
+    try { await navigator.clipboard.writeText(state.exportText); $("dynamic-export-message").textContent = `Copied the complete JSON.${state.exportPreviewShortened ? " Preview is shortened." : ""}`; }
+    catch (_) { if (state.exportPreviewShortened) $("dynamic-export-message").textContent = "Clipboard unavailable. Download JSON to save the complete export; the displayed preview is shortened.";
+      else { $("dynamic-export-json").focus(); $("dynamic-export-json").select(); $("dynamic-export-message").textContent = "Clipboard unavailable. The complete JSON is selected for manual copying, or use Download."; } }
   });
-  $("dynamic-time").addEventListener("input", event => { stopPlayback(); state.hour = Number(event.target.value); renderPlayback(); });
+  $("dynamic-time").addEventListener("input", event => { stopPlayback(); state.hour = Number(event.target.value); for (const refs of Object.values(state.scenes)) refs.movement.replaceChildren(); renderPlayback(); });
   $("dynamic-previous").addEventListener("click", () => jumpEvent(-1)); $("dynamic-next").addEventListener("click", () => jumpEvent(1));
-  $("dynamic-play").addEventListener("click", () => {
-    if (!state.lastRun) return; if (state.playing) { stopPlayback(); return; }
-    const h = (state.lastRun.scenario || state.submitted).horizon_hours;
-    if (state.hour >= h) state.hour = 0;
-    $("dynamic-play").textContent = "Pause"; $("dynamic-play").setAttribute("aria-pressed", "true"); renderPlayback();
-    state.playing = setInterval(() => { state.hour = Math.min(h, state.hour + Math.min(1, h / 24)); renderPlayback(); if (state.hour >= h) stopPlayback(); }, 350);
-  });
-  $("dynamic-log-strategy").addEventListener("change", renderEvents);
+  $("dynamic-reset").addEventListener("click", () => { stopPlayback(); state.hour = 0; for (const refs of Object.values(state.scenes)) refs.movement.replaceChildren(); renderPlayback(); });
+  $("dynamic-play").addEventListener("click", () => { if (!state.lastRun) return; if (state.playing) { stopPlayback(); return; } const h = runScenario().horizon_hours; if (state.hour >= h) state.hour = 0; $("dynamic-play").textContent = "Ⅱ Pause"; $("dynamic-play").setAttribute("aria-pressed", "true"); renderPlayback(); state.playing = setInterval(() => { const previous = state.hour; state.hour = Math.min(h, state.hour + Number($("dynamic-speed").value) * .25); renderPlayback(previous, true); if (state.hour >= h) stopPlayback(); }, 250); });
+  $("dynamic-hospital-filter").addEventListener("change", event => { state.hospitalFilter = event.target.value; renderPlayback(); });
+  $("dynamic-snf-filter").addEventListener("change", event => { state.snfFilter = event.target.value; renderPlayback(); });
+  $("dynamic-patient-search").addEventListener("input", event => { state.search = event.target.value.trim(); const exact = runScenario().patients.find(p => p.id.toLowerCase() === state.search.toLowerCase()); if (exact) selectPatient(exact.id); else renderPlayback(); });
+  $("dynamic-table-search").addEventListener("input", () => { state.tablePage = 0; renderSecondary(); });
+  $("dynamic-log-strategy").addEventListener("change", () => { state.eventPage = 0; renderEvents(); });
+  for (const [id, render] of [["dynamic-placement-details", renderPlacements], ["dynamic-journey-details", renderJourneys], ["dynamic-event-details", renderEvents]]) $(id).addEventListener("toggle", () => { if ($(id).open) render(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopPlayback(); });
-  async function init() {
-    try {
-      const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) };
-      if (!state.examples.length) throw new Error("No dynamic example scenarios are available.");
-      state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); });
-      state.draft = clone(state.examples[0]);
-      try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = clone(validate(JSON.parse(saved))); message("Restored your last draft. Run to generate results."); } } catch (_) { message("Loaded the default scenario."); }
-      $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`;
-      renderEditor();
-    } catch (error) { showError("dynamic-startup-error", error.message); $("dynamic-run").disabled = true; $("dynamic-quick-run").disabled = true; }
-  }
+  async function init() { try { const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) }; if (!state.examples.length) throw new Error("No dynamic scenarios are available."); state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); }); state.draft = defaultFields(state.examples[0]); try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = defaultFields(validate(defaultFields(JSON.parse(saved)))); message("Restored your latest v2 draft."); } } catch (_) { message("Loaded the larger default scenario."); } $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`; for (const [name, limit] of [["patient_count", state.limits.max_patients], ["bed_count", state.limits.max_beds], ["hospital_count", state.limits.max_facilities], ["snf_count", state.limits.max_facilities]]) $("dynamic-generator").elements[name].max = limit; dirty(); renderEditor(); await run({ preventDefault() {} }); } catch (error) { showError("dynamic-startup-error", error.message); setBusy(true); } }
   init();
 })();

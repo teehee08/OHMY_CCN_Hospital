@@ -18,6 +18,7 @@ import phase1
 import phase1_workflow
 import phase2
 import dynamic_model
+import dynamic_scenarios
 
 
 ROOT = Path(__file__).resolve().parent
@@ -295,7 +296,7 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
         if not self._same_origin():
             return
         path = self.path.partition("?")[0]
-        if path not in ("/api/run", "/api/dynamic/run"):
+        if path not in ("/api/run", "/api/dynamic/run", "/api/dynamic/generate"):
             self._error(404, "Route not found")
             return
         if len(self.headers.get_all("Content-Type", [])) != 1 or self.headers.get_content_type() != "application/json":
@@ -320,7 +321,10 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
             payload = json.loads(body.decode("utf-8"), parse_constant=_reject_constant)
             if not isinstance(payload, dict):
                 raise ValueError("Request body must be an object")
-            if path == "/api/dynamic/run":
+            if path == "/api/dynamic/generate":
+                _validate_json(payload)
+                response = dynamic_model.Scenario.from_dict(dynamic_scenarios.generate(payload)).to_dict()
+            elif path == "/api/dynamic/run":
                 _validate_json(payload.get("scenario"))
                 response = dynamic_model.compare(payload.get("scenario"))
             else:

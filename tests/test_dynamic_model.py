@@ -34,6 +34,8 @@ def scenario_data(patients, beds=None, horizon=24, name="dynamic_regression"):
     beds = [bed("b1")] if beds is None else beds
     return {
         "schema_version": 1,
+        # Keep legacy FCFS regression cases explicit as the default policy evolves.
+        "baseline_policy": "fcfs",
         "name": name,
         "horizon_hours": horizon,
         "hospitals": [{"id": "A"}, {"id": "B"}],
@@ -50,7 +52,9 @@ def patients_by_id(result):
 class DynamicSchedulingTests(unittest.TestCase):
     def test_default_five_patient_case_has_hand_checked_waits(self):
         document = json.loads((ROOT / "scenarios" / "dynamic_examples.json").read_text(encoding="utf-8-sig"))
-        report = compare(document["scenarios"][0])
+        data = next(row for row in document["scenarios"] if len(row["patients"]) == 5)
+        data["baseline_policy"] = "fcfs"
+        report = compare(data)
         baseline = patients_by_id(report["baseline"])
         ccn = patients_by_id(report["ccn"])
 

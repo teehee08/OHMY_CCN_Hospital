@@ -15,7 +15,9 @@ ROOT = Path(__file__).parents[1]
 
 def default_scenario():
     document = json.loads((ROOT / "scenarios" / "dynamic_examples.json").read_text(encoding="utf-8-sig"))
-    return document["scenarios"][0]
+    result = next(row for row in document["scenarios"] if len(row["patients"]) == 5)
+    result["baseline_policy"] = "fcfs"
+    return result
 
 
 def reject_nonfinite(value):
@@ -60,12 +62,17 @@ class DynamicLabHttpTests(unittest.TestCase):
         status, document = self.request_json("GET", "/api/dynamic/examples")
         self.assertEqual(status, 200)
         self.assertEqual(set(document), {"scenarios", "limits"})
-        source = json.loads((ROOT / "scenarios" / "dynamic_examples.json").read_text(encoding="utf-8-sig"))
-        self.assertEqual(document["scenarios"], source["scenarios"])
-        self.assertEqual(document["limits"], {"max_patients": 50, "max_beds": 100, "max_facilities": 12})
+        self.assertEqual(document, dynamic_model.examples())
+        self.assertGreaterEqual(len(document["scenarios"]), 3)
+        self.assertEqual(len(document["scenarios"][0]["patients"]), 96)
+        self.assertEqual(len(document["scenarios"][1]["patients"]), 240)
+        for data in document["scenarios"]:
+            self.assertEqual(data, dynamic_model.Scenario.from_dict(data).to_dict())
+        self.assertEqual(document["limits"], {"max_patients": 500, "max_beds": 500, "max_facilities": 40})
+        original = json.loads(json.dumps(document["scenarios"]))
         document["scenarios"][0]["patients"][0]["id"] = "consumer_edit"
         _, second = self.request_json("GET", "/api/dynamic/examples")
-        self.assertEqual(second["scenarios"], source["scenarios"])
+        self.assertEqual(second["scenarios"], original)
 
     def test_dynamic_run_returns_native_finite_results_and_expected_default_effect(self):
         data = default_scenario()
@@ -88,6 +95,34 @@ class DynamicLabHttpTests(unittest.TestCase):
         ):
             native = json.loads((ROOT / "scenarios" / filename).read_text(encoding="utf-8-sig"))
             self.assertEqual(result[mode], native["scenarios"])
+
+    def test_generated_scenario_endpoint_is_seeded_and_returns_editable_input(self):
+        import dynamic_scenarios
+
+        params = {"patient_count": 18, "hospital_count": 3, "snf_count": 4,
+                  "bed_count": 8, "horizon_hours": 120, "seed": 123}
+        status, first = self.request_json("POST", "/api/dynamic/generate", params)
+        self.assertEqual(status, 200)
+        self.assertEqual(first, dynamic_model.Scenario.from_dict(dynamic_scenarios.generate(params)).to_dict())
+        _, second = self.request_json("POST", "/api/dynamic/generate", params)
+        self.assertEqual(first, second)
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": first})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["baseline"]["summary"]["patient_count"], 18)
+        self.assertEqual(report["ccn"]["summary"]["structurally_unplaceable_patient_ids"], [])
+
+    def test_generator_rejects_invalid_requests_and_applies_origin_protection(self):
+        for params in (None, [], {"patient_count": 501}, {"seed": True},
+                       {"unknown_option": 1}, {"hospital_count": 0, "patient_count": 1},
+                       {"snf_count": 0, "bed_count": 1}):
+            with self.subTest(params=params):
+                status, result = self.request_json("POST", "/api/dynamic/generate", params)
+                self.assertEqual(status, 400)
+                self.assertTrue(result.get("error"))
+        status, result = self.request_json(
+            "POST", "/api/dynamic/generate", {}, headers={"Origin": "https://unrelated.example"})
+        self.assertEqual(status, 400)
+        self.assertTrue(result.get("error"))
 
     def test_dynamic_assets_are_served_with_their_content_types_and_support_head(self):
         for path, content_type in (

@@ -390,12 +390,21 @@ class ScenarioLabHttpTests(unittest.TestCase):
                 self.assertTrue(json.loads(payload).get("error"))
 
     def test_oversized_declared_body_is_rejected_before_reading_it(self):
-        status, content_type, payload = self.request(
-            "POST", "/api/run", b"{}", {"Content-Length": str(1024 * 1024 + 1)}
-        )
-        self.assertEqual(status, 400)
-        self.assertTrue(content_type.startswith("application/json"))
-        self.assertTrue(json.loads(payload).get("error"))
+        # Withhold the body: the response must arrive from the headers alone.
+        # Sending an unrelated two-byte body with a huge declared length can
+        # race Windows' connection close and obscure the behavior under test.
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=5)
+        try:
+            connection.putrequest("POST", "/api/run")
+            connection.putheader("Content-Type", "application/json")
+            connection.putheader("Content-Length", str(1024 * 1024 + 1))
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            self.assertTrue(response.getheader("Content-Type").startswith("application/json"))
+            self.assertTrue(json.loads(response.read()).get("error"))
+        finally:
+            connection.close()
 
     def test_json_content_type_and_local_origin_are_required(self):
         data = scenario_lab.examples()["workflow"][0]
