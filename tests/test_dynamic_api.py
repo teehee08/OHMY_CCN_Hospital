@@ -1,0 +1,312 @@
+"""HTTP integration checks for the separate dynamic lab and legacy isolation."""
+
+import http.client
+import json
+from pathlib import Path
+import threading
+import unittest
+
+import dynamic_model
+import scenario_lab
+
+
+ROOT = Path(__file__).parents[1]
+
+
+def default_scenario():
+    document = json.loads((ROOT / "scenarios" / "dynamic_examples.json").read_text(encoding="utf-8-sig"))
+    result = next(row for row in document["scenarios"] if len(row["patients"]) == 5)
+    result["baseline_policy"] = "fcfs"
+    return result
+
+
+def reject_nonfinite(value):
+    raise ValueError(f"Nonfinite number in response: {value}")
+
+
+class DynamicLabHttpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = scenario_lab.create_server(port=0)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.thread.join(timeout=5)
+        cls.server.server_close()
+
+    def request(self, method, path, body=None, headers=None):
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=5)
+        request_headers = {"Content-Type": "application/json; charset=utf-8"}
+        if headers:
+            request_headers.update(headers)
+        try:
+            connection.request(method, path, body=body, headers=request_headers)
+            response = connection.getresponse()
+            payload = response.read()
+            return response.status, dict(response.getheaders()), payload
+        finally:
+            connection.close()
+
+    def request_json(self, method, path, value=None, *, headers=None):
+        body = None if method in ("GET", "HEAD") else json.dumps(value).encode("utf-8")
+        status, response_headers, payload = self.request(method, path, body, headers)
+        self.assertTrue(response_headers["Content-Type"].startswith("application/json"))
+        result = json.loads(payload, parse_constant=reject_nonfinite)
+        json.dumps(result, allow_nan=False)
+        return status, result
+
+    def test_dynamic_examples_are_editable_inputs_with_explicit_limits(self):
+        status, document = self.request_json("GET", "/api/dynamic/examples")
+        self.assertEqual(status, 200)
+        self.assertEqual(set(document), {"scenarios", "limits"})
+        self.assertEqual(document, dynamic_model.examples())
+        self.assertGreaterEqual(len(document["scenarios"]), 3)
+        self.assertEqual(len(document["scenarios"][0]["patients"]), 96)
+        self.assertEqual(len(document["scenarios"][1]["patients"]), 240)
+        for data in document["scenarios"]:
+            self.assertEqual(data, dynamic_model.Scenario.from_dict(data).to_dict())
+        self.assertEqual(document["limits"], {"max_patients": 500, "max_beds": 500, "max_facilities": 40})
+        original = json.loads(json.dumps(document["scenarios"]))
+        document["scenarios"][0]["patients"][0]["id"] = "consumer_edit"
+        _, second = self.request_json("GET", "/api/dynamic/examples")
+        self.assertEqual(second["scenarios"], original)
+
+    def test_dynamic_run_returns_native_finite_results_and_expected_default_effect(self):
+        data = default_scenario()
+        status, result = self.request_json("POST", "/api/dynamic/run", {"scenario": data})
+        self.assertEqual(status, 200)
+        self.assertEqual(result, json.loads(json.dumps(dynamic_model.compare(data), allow_nan=False)))
+        self.assertEqual(result["baseline"]["summary"]["blocked_bed_hours"], 52)
+        self.assertEqual(result["ccn"]["summary"]["blocked_bed_hours"], 0)
+        self.assertEqual(result["observation"]["start_hour"], 10)
+        self.assertEqual(result["observation"]["end_hour"], 87)
+        self.assertEqual(result["observation"]["duration_hours"], 77)
+        self.assertTrue(result["observation"]["complete"])
+        for policy in ("baseline", "ccn"):
+            self.assertEqual(result[policy]["summary"]["completed_count"], 5)
+            self.assertEqual(result[policy]["summary"]["snf_occupied_bed_hours"], 168)
+            self.assertTrue(all(patient["status"] == "completed" for patient in result[policy]["patients"]))
+        self.assertTrue(result["assumptions"])
+
+    def test_readiness_after_legacy_arrival_span_is_valid_and_observed_to_completion(self):
+        data = default_scenario()
+        data["patients"] = [data["patients"][0]]
+        data["patients"][0].update(ready_hour=100, length_of_stay_hours=2)
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": data})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["scenario"]["arrival_span_hours"], 72)
+        self.assertEqual(report["observation"]["start_hour"], 100)
+        self.assertEqual(report["observation"]["end_hour"], 102)
+        self.assertEqual(report["observation"]["duration_hours"], 2)
+        for policy in ("baseline", "ccn"):
+            self.assertEqual(report[policy]["patients"][0]["admission_hour"], 100)
+            self.assertEqual(report[policy]["patients"][0]["release_hour"], 102)
+            self.assertEqual(report[policy]["summary"]["time_to_completion_hours"], 2)
+            self.assertEqual(report[policy]["summary"]["blocked_bed_hours"], 0)
+
+    def test_original_examples_keep_exactly_three_legacy_modes(self):
+        status, result = self.request_json("GET", "/api/examples")
+        self.assertEqual(status, 200)
+        self.assertEqual(set(result), {"workflow", "allocation", "clinical"})
+        self.assertEqual(result, scenario_lab.examples())
+        for mode, filename in (
+            ("workflow", "phase1_workflow_examples.json"),
+            ("allocation", "phase1_examples.json"),
+            ("clinical", "phase2_examples.json"),
+        ):
+            native = json.loads((ROOT / "scenarios" / filename).read_text(encoding="utf-8-sig"))
+            self.assertEqual(result[mode], native["scenarios"])
+
+    def test_controlled_experiment_catalog_is_seeded_and_editable(self):
+        import dynamic_experiments
+
+        status, document = self.request_json("GET", "/api/dynamic/experiments?seed=84")
+        self.assertEqual(status, 200)
+        self.assertEqual(document["seed"], 84)
+        self.assertEqual(document["experiments"], dynamic_experiments.catalog(84))
+        self.assertEqual({row["id"] for row in document["experiments"]},
+                         {"load_light", "load_medium", "load_heavy",
+                          "competition_within", "competition_cross"})
+        for record in document["experiments"]:
+            self.assertEqual(record["scenario"], dynamic_model.Scenario.from_dict(record["scenario"]).to_dict())
+        status, default = self.request_json("GET", "/api/dynamic/experiments")
+        self.assertEqual(status, 200)
+        self.assertEqual(default["experiments"], dynamic_experiments.catalog(42))
+        status, headers, payload = self.request("HEAD", "/api/dynamic/experiments?seed=42")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, b"")
+        for suffix in ("?seed=-1", "?seed=4294967296", "?seed=1&seed=2", "?seed=",
+                       "?seed=true", "?seed=1.0", "?unknown=42", "?a=1&b=2&c=3&d=4&e=5"):
+            with self.subTest(query=suffix):
+                status, invalid = self.request_json("GET", "/api/dynamic/experiments" + suffix)
+                self.assertEqual(status, 400)
+                self.assertTrue(invalid["error"])
+        status, _, _ = self.request("GET", "/api/dynamic/experiments", headers={"Host": "unrelated.example"})
+        self.assertEqual(status, 400)
+
+    def test_generated_scenario_endpoint_is_seeded_and_returns_editable_input(self):
+        import dynamic_scenarios
+
+        params = {"patient_count": 18, "hospital_count": 3, "snf_count": 4,
+                  "bed_count": 8, "horizon_hours": 120, "seed": 123}
+        status, first = self.request_json("POST", "/api/dynamic/generate", params)
+        self.assertEqual(status, 200)
+        self.assertEqual(first, dynamic_model.Scenario.from_dict(dynamic_scenarios.generate(params)).to_dict())
+        _, second = self.request_json("POST", "/api/dynamic/generate", params)
+        self.assertEqual(first, second)
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": first})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["baseline"]["summary"]["patient_count"], 18)
+        self.assertEqual(report["ccn"]["summary"]["structurally_unplaceable_patient_ids"], [])
+
+    def test_generator_rejects_invalid_requests_and_applies_origin_protection(self):
+        for params in (None, [], {"patient_count": 501}, {"seed": True},
+                       {"unknown_option": 1}, {"hospital_count": 0, "patient_count": 1},
+                       {"snf_count": 0, "bed_count": 1}):
+            with self.subTest(params=params):
+                status, result = self.request_json("POST", "/api/dynamic/generate", params)
+                self.assertEqual(status, 400)
+                self.assertTrue(result.get("error"))
+        status, result = self.request_json(
+            "POST", "/api/dynamic/generate", {}, headers={"Origin": "https://unrelated.example"})
+        self.assertEqual(status, 400)
+        self.assertTrue(result.get("error"))
+
+    def test_full_unsigned_seed_range_survives_http_and_model_validation(self):
+        for seed in (1_000_000_001, 2**31, 2**32 - 1):
+            with self.subTest(seed=seed):
+                status, scenario = self.request_json("POST", "/api/dynamic/generate", {
+                    "patient_count": 2, "hospital_count": 2, "snf_count": 1,
+                    "bed_count": 1, "horizon_hours": 24, "seed": seed})
+                self.assertEqual(status, 200)
+                self.assertEqual(scenario["tie_break_seed"], seed)
+                status, result = self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})
+                self.assertEqual(status, 200)
+                self.assertEqual(result["scenario"]["tie_break_seed"], seed)
+        scenario = default_scenario()
+        scenario["tie_break_seed"] = 2**32
+        self.assertEqual(self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})[0], 400)
+
+    def test_dynamic_assets_are_served_with_their_content_types_and_support_head(self):
+        for path, content_type in (
+            ("/dynamic", "text/html"),
+            ("/dynamic.js", "text/javascript"),
+            ("/dynamic_metrics.js", "text/javascript"),
+            ("/dynamic.css", "text/css"),
+        ):
+            with self.subTest(path=path):
+                status, headers, body = self.request("GET", path)
+                self.assertEqual(status, 200)
+                self.assertTrue(headers["Content-Type"].startswith(content_type))
+                self.assertTrue(body)
+                self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+                status, _, head_body = self.request("HEAD", path)
+                self.assertEqual(status, 200)
+                self.assertEqual(head_body, b"")
+
+    def test_optimizer_seed_and_full_cohort_fairness_survive_http(self):
+        scenario = {"name": "Distribution tradeoff", "hospitals": [{"id": "A"}, {"id": "B"}],
+                    "snfs": [{"id": "S"}], "beds": [{"id": "b", "snf_id": "S", "gender": "any"}],
+                    "tie_break_seed": 17, "optimizer_seed": 2**32 - 1,
+                    "patients": [
+                        {"id": "long", "hospital_id": "A", "gender": "female", "ready_hour": 0,
+                         "length_of_stay_hours": 10, "eligible_snf_ids": ["S"]},
+                        {"id": "short", "hospital_id": "B", "gender": "male", "ready_hour": 1,
+                         "length_of_stay_hours": 1, "eligible_snf_ids": ["S"]}]}
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["scenario"]["optimizer_seed"], 2**32 - 1)
+        self.assertEqual(report["ccn"]["solver"]["seed"], 2**32 - 1)
+        self.assertTrue(report["ccn"]["solver"]["search_independent_of_baseline"])
+        fairness = report["fairness"]
+        self.assertTrue(fairness["defined"])
+        self.assertEqual(fairness["patients"]["improved_count"], 1)
+        self.assertEqual(fairness["patients"]["worsened_count"], 1)
+        self.assertEqual(fairness["patients"]["unchanged_count"], 0)
+        self.assertEqual(fairness["baseline"]["total_wait_hours"], 9)
+        self.assertEqual(fairness["ccn"]["total_wait_hours"], 2)
+        self.assertEqual(fairness["patients"]["max_increase_wait_hours"], 2)
+        scenario["optimizer_seed"] = 2**32
+        self.assertEqual(self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})[0], 400)
+
+    def test_invalid_shapes_references_and_times_return_json_400(self):
+        invalid_reference = default_scenario()
+        invalid_reference["patients"][0]["hospital_id"] = "unknown_hospital"
+        invalid_stay = default_scenario()
+        invalid_stay["patients"][0]["length_of_stay_hours"] = 0
+        invalid_ready = default_scenario()
+        invalid_ready["patients"][0]["ready_hour"] = -1
+        for value in (None, [], {}, {"scenario": None}, {"scenario": []},
+                      {"scenario": invalid_reference}, {"scenario": invalid_stay}, {"scenario": invalid_ready}):
+            with self.subTest(value=value):
+                status, result = self.request_json("POST", "/api/dynamic/run", value)
+                self.assertEqual(status, 400)
+                self.assertTrue(result.get("error"))
+
+    def test_malformed_json_encoding_and_nonfinite_numbers_do_not_break_server(self):
+        for body in (b'{"scenario":', b"\xff", b'{"scenario":{"horizon_hours":NaN}}'):
+            with self.subTest(body=body):
+                status, headers, payload = self.request("POST", "/api/dynamic/run", body)
+                self.assertEqual(status, 400)
+                self.assertTrue(headers["Content-Type"].startswith("application/json"))
+                self.assertTrue(json.loads(payload, parse_constant=reject_nonfinite).get("error"))
+        status, result = self.request_json("POST", "/api/dynamic/run", {"scenario": default_scenario()})
+        self.assertEqual(status, 200)
+        self.assertEqual(result["ccn"]["summary"]["patient_count"], 5)
+
+    def test_dynamic_routes_apply_content_type_host_and_origin_protections(self):
+        body = json.dumps({"scenario": default_scenario()}).encode("utf-8")
+        for headers in (
+            {"Content-Type": "text/plain"},
+            {"Host": "unrelated.example"},
+            {"Origin": "https://unrelated.example"},
+        ):
+            with self.subTest(headers=headers):
+                status, response_headers, payload = self.request("POST", "/api/dynamic/run", body, headers)
+                self.assertEqual(status, 400)
+                self.assertTrue(response_headers["Content-Type"].startswith("application/json"))
+                self.assertTrue(json.loads(payload).get("error"))
+        for path in ("/api/dynamic/examples", "/dynamic", "/dynamic.js", "/dynamic.css"):
+            with self.subTest(get_path=path):
+                status, _, _ = self.request("GET", path, headers={"Host": "unrelated.example"})
+                self.assertEqual(status, 400)
+        port = self.server.server_address[1]
+        for host in ("127.0.0.1", "localhost"):
+            with self.subTest(valid_host=host):
+                status, result = self.request_json(
+                    "POST", "/api/dynamic/run", {"scenario": default_scenario()},
+                    headers={"Host": f"{host}:{port}", "Origin": f"http://{host}:{port}"},
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(result["baseline"]["summary"]["patient_count"], 5)
+
+    def test_oversized_declared_body_is_rejected_without_waiting_for_body(self):
+        # Send headers only: rejecting the size must not require receiving it.
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=5)
+        try:
+            connection.putrequest("POST", "/api/dynamic/run")
+            connection.putheader("Content-Type", "application/json")
+            connection.putheader("Content-Length", str(1024 * 1024 + 1))
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            self.assertTrue(json.loads(response.read()).get("error"))
+        finally:
+            connection.close()
+
+    def test_dynamic_unknown_routes_and_nonpublic_files_are_not_served(self):
+        for path in ("/api/dynamic/missing", "/dynamic/../dynamic_model.py", "/dynamic_model.py"):
+            with self.subTest(path=path):
+                status, _, payload = self.request("GET", path)
+                self.assertEqual(status, 404)
+                self.assertTrue(json.loads(payload).get("error"))
+        status, _, payload = self.request("POST", "/api/dynamic/missing")
+        self.assertEqual(status, 404)
+        self.assertTrue(json.loads(payload).get("error"))
+
+
+if __name__ == "__main__":
+    unittest.main()

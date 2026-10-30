@@ -13,10 +13,14 @@ from pathlib import Path
 import socket
 from typing import Any
 import webbrowser
+from urllib.parse import parse_qs
 
 import phase1
 import phase1_workflow
 import phase2
+import dynamic_model
+import dynamic_scenarios
+import dynamic_experiments
 
 
 ROOT = Path(__file__).resolve().parent
@@ -35,6 +39,11 @@ STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+    "/dynamic": ("dynamic.html", "text/html; charset=utf-8"),
+    "/dynamic/": ("dynamic.html", "text/html; charset=utf-8"),
+    "/dynamic.js": ("dynamic.js", "text/javascript; charset=utf-8"),
+    "/dynamic_metrics.js": ("dynamic_metrics.js", "text/javascript; charset=utf-8"),
+    "/dynamic.css": ("dynamic.css", "text/css; charset=utf-8"),
 }
 ASSUMPTIONS = {
     "workflow": [
@@ -60,7 +69,7 @@ ASSUMPTIONS = {
 }
 
 
-def _validate_json(value: Any) -> None:
+def _validate_json(value: Any, *, max_number: int = MAX_NUMBER) -> None:
     """Reject non-JSON values and numbers that could overflow model arithmetic."""
     pending = [(value, 0)]
     visited = 0
@@ -74,8 +83,8 @@ def _validate_json(value: Any) -> None:
         if isinstance(item, (int, float)):
             if isinstance(item, float) and not math.isfinite(item):
                 raise ValueError("Scenario numbers must be finite")
-            if abs(item) > MAX_NUMBER:
-                raise ValueError(f"Scenario numbers must be between {-MAX_NUMBER} and {MAX_NUMBER}")
+            if abs(item) > max_number:
+                raise ValueError(f"Scenario numbers must be between {-max_number} and {max_number}")
         elif isinstance(item, list):
             pending.extend((child, depth + 1) for child in item)
         elif isinstance(item, dict):
@@ -264,6 +273,29 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
                 self._json(200, examples(), head=head)
             except (OSError, ValueError, KeyError):
                 self._error(500, "The example scenarios could not be loaded", head=head)
+        elif path == "/api/dynamic/examples":
+            try:
+                self._json(200, dynamic_model.examples(), head=head)
+            except (OSError, ValueError, KeyError):
+                self._error(500, "The dynamic examples could not be loaded", head=head)
+        elif path == "/api/dynamic/experiments":
+            try:
+                query = parse_qs(self.path.partition("?")[2], keep_blank_values=True,
+                                 max_num_fields=4)
+                if set(query) - {"seed"} or len(query.get("seed", ["42"])) != 1:
+                    raise ValueError("Supply at most one experiment seed")
+                raw_seed = query.get("seed", ["42"])[0]
+                if not raw_seed.isascii() or not raw_seed.isdigit() or len(raw_seed) > 10:
+                    raise ValueError("seed must be an integer between 0 and 4294967295")
+                seed = int(raw_seed)
+                if not 0 <= seed <= 2**32 - 1:
+                    raise ValueError("seed must be an integer between 0 and 4294967295")
+                self._json(200, {"experiments": dynamic_experiments.catalog(seed),
+                                 "seed": seed,
+                                 "assumption": "Synthetic controlled experiments; not calibrated effect estimates."},
+                           head=head)
+            except ValueError as error:
+                self._error(400, str(error), head=head)
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             try:
@@ -284,7 +316,8 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not self._same_origin():
             return
-        if self.path.partition("?")[0] != "/api/run":
+        path = self.path.partition("?")[0]
+        if path not in ("/api/run", "/api/dynamic/run", "/api/dynamic/generate"):
             self._error(404, "Route not found")
             return
         if len(self.headers.get_all("Content-Type", [])) != 1 or self.headers.get_content_type() != "application/json":
@@ -309,7 +342,14 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
             payload = json.loads(body.decode("utf-8"), parse_constant=_reject_constant)
             if not isinstance(payload, dict):
                 raise ValueError("Request body must be an object")
-            response = run_experiment(payload.get("mode"), payload.get("scenario"))
+            if path == "/api/dynamic/generate":
+                _validate_json(payload, max_number=2**32 - 1)
+                response = dynamic_model.Scenario.from_dict(dynamic_scenarios.generate(payload)).to_dict()
+            elif path == "/api/dynamic/run":
+                _validate_json(payload.get("scenario"), max_number=2**32 - 1)
+                response = dynamic_model.compare(payload.get("scenario"))
+            else:
+                response = run_experiment(payload.get("mode"), payload.get("scenario"))
         except (UnicodeError, ValueError, TypeError, OverflowError, RecursionError) as error:
             message = str(error) if isinstance(error, ValueError) and not isinstance(error, json.JSONDecodeError) else "Invalid JSON request or scenario"
             self._error(400, message)
