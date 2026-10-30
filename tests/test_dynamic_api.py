@@ -96,6 +96,33 @@ class DynamicLabHttpTests(unittest.TestCase):
             native = json.loads((ROOT / "scenarios" / filename).read_text(encoding="utf-8-sig"))
             self.assertEqual(result[mode], native["scenarios"])
 
+    def test_controlled_experiment_catalog_is_seeded_and_editable(self):
+        import dynamic_experiments
+
+        status, document = self.request_json("GET", "/api/dynamic/experiments?seed=84")
+        self.assertEqual(status, 200)
+        self.assertEqual(document["seed"], 84)
+        self.assertEqual(document["experiments"], dynamic_experiments.catalog(84))
+        self.assertEqual({row["id"] for row in document["experiments"]},
+                         {"load_light", "load_medium", "load_heavy",
+                          "competition_within", "competition_cross"})
+        for record in document["experiments"]:
+            self.assertEqual(record["scenario"], dynamic_model.Scenario.from_dict(record["scenario"]).to_dict())
+        status, default = self.request_json("GET", "/api/dynamic/experiments")
+        self.assertEqual(status, 200)
+        self.assertEqual(default["experiments"], dynamic_experiments.catalog(42))
+        status, headers, payload = self.request("HEAD", "/api/dynamic/experiments?seed=42")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, b"")
+        for suffix in ("?seed=-1", "?seed=4294967296", "?seed=1&seed=2", "?seed=",
+                       "?seed=true", "?seed=1.0", "?unknown=42", "?a=1&b=2&c=3&d=4&e=5"):
+            with self.subTest(query=suffix):
+                status, invalid = self.request_json("GET", "/api/dynamic/experiments" + suffix)
+                self.assertEqual(status, 400)
+                self.assertTrue(invalid["error"])
+        status, _, _ = self.request("GET", "/api/dynamic/experiments", headers={"Host": "unrelated.example"})
+        self.assertEqual(status, 400)
+
     def test_generated_scenario_endpoint_is_seeded_and_returns_editable_input(self):
         import dynamic_scenarios
 

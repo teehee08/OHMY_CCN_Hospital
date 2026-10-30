@@ -127,15 +127,67 @@ measured provider contracts or clinical staffing data.
   zero. A bed released at hour 12 can be reused at hour 12. Stays begin at actual
   admission, and future plans never count as actual occupancy.
 
-Scheduling uses the same deterministic multi-order insertion heuristics for
-local and global visible cohorts. Subproblems with at most eight compatible
-patients additionally use bounded branch-and-bound. Local exact calls share
-a 30,000-node / two-second total budget; global exact search uses 30,000 nodes /
-two seconds. **Heuristic** and **search-limited** results do not claim exact
-optimality. A zero-wait lower bound can prove optimality at any size. Baseline
-metadata describes hospital-local subproblems, not a global optimum of the
-decentralized outcome. Wall-time exhaustion can affect the best plan found;
-preserve exported results when comparing a particular completed run.
+Hospital-local planning retains six insertion-order heuristics. CCN first keeps
+the better of those global orders and the actual local-baseline plan, then tries
+seeded multistart orders, mutations of improving orders, and alternative bed
+ties. Larger global cases use a fixed, input-size-dependent work budget (up to
+1,000 candidates), rather than a machine-speed-dependent stopping time. Solver
+metadata reports the search seed, candidate count, initial and final objectives,
+and a lower bound. The default 96-person input is unchanged: its local baseline
+remains 1,029 eventual wait-hours / 912 window blocked bed-hours, while CCN improves
+from the old six-order 858 / 848 to 574 / 531. The latter is a feasible solution,
+not a certified optimum. Every final plan is checked for completeness,
+compatibility, readiness, stay length, and non-overlapping bed intervals.
+
+Subproblems with at most eight compatible patients retain bounded
+branch-and-bound. Local exact calls share a 30,000-node / two-second total budget;
+global exact search uses 30,000 nodes / two seconds. **Heuristic** and
+**search-limited** results do not claim exact optimality. A zero-wait lower bound
+can prove optimality at any size. Baseline metadata describes hospital-local
+subproblems, not a global optimum of the decentralized outcome. Wall-time
+exhaustion in bounded exact calls can affect the best plan found; preserve
+exported results when comparing a particular completed run.
+
+#### Controlled load and competition experiments
+
+In **Configure scenario → Controlled experiment**, choose a case, load its
+inputs, then run the comparison. These cases use a separate frozen-cohort
+factory; changing the general-purpose generator's bed count also changes its
+patients and is therefore not a controlled capacity experiment.
+
+- **Light / medium / heavy:** the same 96 patients, four hospitals, six SNFs,
+  168-hour horizon, insurance, clinical needs, arrivals, and stays; only the
+  multiplicity of each of 12 clinical bed types changes, giving 48 / 24 / 12 beds.
+  Every patient retains a compatible bed at every capacity level.
+- **Scarce-bed competition:** the same physical demand, SNFs and beds are paired
+  with demand concentrated in one hospital or spread over four hospitals. Only
+  patient hospital ownership changes. Flexible patients can use ordinary beds;
+  restricted patients need a shared bariatric bed. Insurance and care remain
+  hard constraints.
+
+Offered load is `sum(all SNF stays) / (bed count × observation hours)`; it is a
+nominal pressure measure, not observed utilization. Both full-cohort eventual
+waiting and window-censored blocked bed-hours are reported. Admissions, 90th
+percentile and maximum wait, and the worst hospital's mean wait help expose
+tradeoffs when minimizing the total.
+
+Run every case for the predeclared seeds 42, 84, and 126:
+
+```powershell
+python run_dynamic_experiments.py --output dynamic_results.json --csv dynamic_summary.csv
+```
+
+Use `--seeds 42 84 126` to specify another full seed set. JSON preserves exact
+inputs, complete results, source hashes, independent schedule/accounting audits,
+and per-case mean/standard deviation; CSV contains one row per seed/case. All
+seeds and zero/negative window savings are retained. A lower eventual objective
+does not guarantee more admissions or lower waiting before the horizon.
+
+The within-hospital control matters: CCN also receives more solver effort than
+the local baseline, so its measured advantage includes search quality as well
+as information and coordination. These experiments do not identify a pure
+causal value of information. Parameters are synthetic mechanism/stress tests,
+not calibrated hospital workloads or real-world CCN effect estimates.
 
 #### Metrics and time
 

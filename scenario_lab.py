@@ -13,12 +13,14 @@ from pathlib import Path
 import socket
 from typing import Any
 import webbrowser
+from urllib.parse import parse_qs
 
 import phase1
 import phase1_workflow
 import phase2
 import dynamic_model
 import dynamic_scenarios
+import dynamic_experiments
 
 
 ROOT = Path(__file__).resolve().parent
@@ -275,6 +277,24 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
                 self._json(200, dynamic_model.examples(), head=head)
             except (OSError, ValueError, KeyError):
                 self._error(500, "The dynamic examples could not be loaded", head=head)
+        elif path == "/api/dynamic/experiments":
+            try:
+                query = parse_qs(self.path.partition("?")[2], keep_blank_values=True,
+                                 max_num_fields=4)
+                if set(query) - {"seed"} or len(query.get("seed", ["42"])) != 1:
+                    raise ValueError("Supply at most one experiment seed")
+                raw_seed = query.get("seed", ["42"])[0]
+                if not raw_seed.isascii() or not raw_seed.isdigit() or len(raw_seed) > 10:
+                    raise ValueError("seed must be an integer between 0 and 4294967295")
+                seed = int(raw_seed)
+                if not 0 <= seed <= 2**32 - 1:
+                    raise ValueError("seed must be an integer between 0 and 4294967295")
+                self._json(200, {"experiments": dynamic_experiments.catalog(seed),
+                                 "seed": seed,
+                                 "assumption": "Synthetic controlled experiments; not calibrated effect estimates."},
+                           head=head)
+            except ValueError as error:
+                self._error(400, str(error), head=head)
         elif path in STATIC_FILES:
             filename, content_type = STATIC_FILES[path]
             try:

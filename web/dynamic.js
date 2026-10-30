@@ -2,7 +2,7 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id), clone = value => JSON.parse(JSON.stringify(value));
-  const state = { draft: null, examples: [], limits: { max_patients: 500, max_beds: 500, max_facilities: 40 }, lastRun: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json", selected: null, hospitalFilter: "", snfFilter: "", search: "", editorSearch: "", patientPage: 0, bedPage: 0, tablePage: 0, eventPage: 0, maps: {}, scenes: {}, patientIndex: new Map(), expandedWards: new Set() };
+  const state = { draft: null, examples: [], experiments: [], experimentKeys: new Map(), runExperiment: null, limits: { max_patients: 500, max_beds: 500, max_facilities: 40 }, lastRun: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json", selected: null, hospitalFilter: "", snfFilter: "", search: "", editorSearch: "", patientPage: 0, bedPage: 0, tablePage: 0, eventPage: 0, maps: {}, scenes: {}, patientIndex: new Map(), expandedWards: new Set() };
   const storageKey = "ohmy.dynamic.draft.v2", maxHours = 1000000, maxTextLength = 80, PAGE = 10, TABLE_PAGE = 25;
   const genders = [["female", "Female"], ["male", "Male"]], bedGenders = [["any", "Any gender"], ...genders], days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const CARE_LABELS = { rehabilitation: "Rehabilitation", oxygen: "Oxygen", bariatric: "Bariatric", dialysis: "Dialysis", wound_care: "Wound care", memory_care: "Memory care" };
@@ -19,7 +19,97 @@
   function message(text) { $("dynamic-editor-message").textContent = text; }
   function defaultFields(s) { const copy = clone(s); if (copy.tie_break_seed === undefined) copy.tie_break_seed = 42; if (copy.baseline_policy === undefined) copy.baseline_policy = "local"; (copy.snfs || []).forEach(f => { if (f.accepted_insurances === undefined) f.accepted_insurances = ["*"]; }); (copy.beds || []).forEach(b => { if (b.capabilities === undefined) b.capabilities = []; }); (copy.patients || []).forEach(p => { if (p.insurance_type === undefined) p.insurance_type = "unspecified"; if (p.required_capabilities === undefined) p.required_capabilities = []; }); return copy; }
   function summary(s) { return `${s.hospitals.length} hospitals · ${s.patients.length} patients · ${s.snfs.length} SNFs · ${s.beds.length} beds · ${fmt(s.horizon_hours / 24)} days`; }
-  function dirty() { if (!state.draft) return; try { localStorage.setItem(storageKey, JSON.stringify(state.draft)); } catch (_) {} const stale = Boolean(state.lastRun) && JSON.stringify(state.draft) !== JSON.stringify(state.submitted); $("dynamic-stale").hidden = !stale; $("dynamic-result-status").textContent = state.busy ? "Running…" : stale ? "Draft changed" : state.lastRun ? "Run complete" : "Ready to run"; $("dynamic-result-status").className = `result-status${stale ? " stale" : state.lastRun ? " complete" : ""}`; $("dynamic-draft-name").textContent = state.draft.name || "Untitled scenario"; $("dynamic-draft-summary").textContent = summary(state.draft); }
+  function scenarioKey(scenario) {
+    function stable(value) {
+      if (Array.isArray(value)) return value.map(stable);
+      if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+      return value;
+    }
+    return JSON.stringify(stable(defaultFields(scenario)));
+  }
+  function experimentFor(scenario) { return state.experimentKeys.get(scenarioKey(scenario)) || null; }
+  function experimentFactor(value) { return typeof value === "string" ? value.replaceAll("_", " ") : JSON.stringify(value ?? "—"); }
+  function offeredLoad(scenario) {
+    const capacity = scenario.beds.length * scenario.horizon_hours;
+    return capacity > 0 ? scenario.patients.reduce((sum, p) => sum + p.length_of_stay_hours, 0) / capacity : null;
+  }
+  function renderExperimentSelection() {
+    const experiment = state.experiments.find(item => item.id === $("dynamic-experiment").value), root = $("dynamic-experiment-description");
+    root.replaceChildren();
+    if (!experiment) return;
+    root.append(el("strong", "", experiment.title), el("p", "", experiment.description));
+    const tags = el("div", "experiment-tags");
+    tags.append(el("span", "", `Changed: ${experimentFactor(experiment.changed_factor)}`), el("span", "", `Cohort: ${experiment.cohort_id || "—"}`));
+    const load = offeredLoad(experiment.scenario); tags.append(el("span", "", `Offered load: ${load == null ? "undefined" : `${fmt(load * 100)}%`}`)); root.append(tags);
+    if (experiment.design?.held_constant?.length) root.append(el("p", "experiment-constraints", `Held constant: ${experiment.design.held_constant.join("; ")}.`));
+    if (experiment.design?.comparison_note) root.append(el("p", "experiment-constraints", experiment.design.comparison_note));
+  }
+  function renderDraftExperiment() {
+    const current = experimentFor(state.draft);
+    $("dynamic-experiment-match").textContent = current ? `Draft matches ${current.title}. Run to compare its results.` : "Current draft is custom input. Editing an experiment removes its controlled-experiment label until the original inputs match again.";
+  }
+  async function loadExperiments() {
+    try {
+      const data = await api("/api/dynamic/experiments?seed=42"); state.experiments = data.experiments || [];
+      state.experimentKeys = new Map(state.experiments.map(item => [scenarioKey(item.scenario), item]));
+      const selector = $("dynamic-experiment"); selector.replaceChildren();
+      for (const experiment of state.experiments) { const option = el("option", "", experiment.title); option.value = experiment.id; selector.append(option); }
+      $("dynamic-load-experiment").disabled = !state.experiments.length;
+      if (!state.experiments.length) throw new Error("No controlled experiments available.");
+      renderExperimentSelection(); renderDraftExperiment();
+    } catch (error) {
+      $("dynamic-experiment").replaceChildren(el("option", "", "Experiments unavailable")); $("dynamic-load-experiment").disabled = true;
+      $("dynamic-experiment-description").textContent = `Controlled experiments could not load: ${error.message} Other examples and custom scenarios are still available.`;
+    }
+  }
+  function renderRunExperiment() {
+    const root = $("dynamic-run-experiment"), scenario = runScenario(), experiment = state.runExperiment; root.replaceChildren();
+    const description = el("div", "run-experiment-copy"); description.append(el("span", "section-kicker", experiment ? "COMPLETED RUN / CONTROLLED EXPERIMENT" : "COMPLETED RUN / CUSTOM INPUTS"));
+    description.append(el("h3", "", experiment ? experiment.title : "Custom scenario"));
+    const fullDescription = experiment ? experiment.description : "These results use the exact submitted patient demand, capacity and compatibility rules.";
+    const firstSentence = fullDescription.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || fullDescription;
+    description.append(el("p", "", firstSentence));
+    const load = offeredLoad(scenario), metric = el("div", "offered-load"); metric.append(el("span", "", "OFFERED LOAD"), el("strong", "", load == null ? "—" : `${fmt(load * 100)}%`));
+    const interpretation = el("details", "experiment-interpretation"); interpretation.append(el("summary", "", "Experiment design & interpretation"));
+    if (experiment || fullDescription !== firstSentence) interpretation.append(el("p", "", fullDescription));
+    if (experiment) interpretation.append(el("p", "", `Changed factor: ${experimentFactor(experiment.changed_factor)} · Cohort: ${experiment.cohort_id || "—"}. Original experiment inputs matched at submission.`));
+    if (experiment?.design?.comparison_note) interpretation.append(el("p", "", experiment.design.comparison_note));
+    interpretation.append(el("p", "", "Offered load = full requested SNF bed-hours ÷ (beds × observation hours). It describes demand relative to nominal capacity, including requested stays beyond the observation window. It ignores placement constraints and is not actual SNF utilization; actual occupied capacity is reported below."));
+    root.append(description, metric, interpretation);
+  }
+  function renderSolverDiagnostics() {
+    const data = state.lastRun, root = $("dynamic-solver-note"); root.replaceChildren();
+    root.className = `solver-note${data.ccn.solver && data.ccn.solver.status !== "optimal" ? " warning" : ""}`;
+    root.append(el("h3", "", "Optimization diagnostics"), el("p", "solver-objective", "The planning objective is eventual patient waiting, including admissions after the observation window. Hospital bed-hours above are separately censored at the window end."));
+    const columns = el("div", "solver-columns");
+    for (const key of ["baseline", "ccn"]) {
+      const solver = data[key].solver, col = el("section");
+      col.append(el("h4", "", key === "baseline" ? "Baseline · hospital-local planning" : "CCN · joint planning"));
+      if (!solver) { col.append(el("p", "", key === "baseline" ? "Online placement policy; no optimization guarantee." : "Solver diagnostics unavailable.")); columns.append(col); continue; }
+      const scope = key === "baseline" ? "Individual local subproblems" : "The supplied joint planning problem";
+      const status = solver.status === "optimal" ? `${scope}: optimality established.` : solver.status === "search_limited" ? "Search budget reached. Best feasible plan found; optimality is unproven." : "Feasible heuristic plan; optimality is unproven.";
+      col.append(el("p", "solver-status", status));
+      if (key === "baseline") col.append(el("p", "solver-scope", "Local subproblem status does not establish a globally optimal decentralized outcome."));
+      const values = [];
+      if (solver.method != null) values.push(["Method", String(solver.method).replaceAll("_", " ")]);
+      if (solver.seed != null) values.push(["Search seed", fmt(solver.seed)]);
+      if (solver.candidates_evaluated != null) values.push(["Candidates evaluated", fmt(solver.candidates_evaluated)]);
+      if (solver.candidate_budget != null) values.push(["Candidate budget", fmt(solver.candidate_budget)]);
+      if (solver.baseline_objective_hours != null) values.push(["Baseline incumbent", `${fmt(solver.baseline_objective_hours)} h`]);
+      if (solver.initial_objective_hours != null) values.push(["Initial eventual wait", `${fmt(solver.initial_objective_hours)} h`]);
+      if (solver.objective_hours != null) values.push(["Final planned wait", `${fmt(solver.objective_hours)} h`]);
+      if (solver.lower_bound_hours != null) values.push(["Reported lower bound", `${fmt(solver.lower_bound_hours)} h`]);
+      if (solver.nodes != null) values.push(["Search nodes", fmt(solver.nodes)]);
+      if (solver.optimized_patient_count != null) values.push(["Patients optimized", fmt(solver.optimized_patient_count)]);
+      if (values.length) col.append(detailList(values));
+      if (solver.lower_bound_hours != null) col.append(el("p", "solver-scope", solver.lower_bound_hours === 0 ? "A zero lower bound is valid but may be weak; a positive final objective is not a proof of optimality." : "The reported lower bound is a bound on eventual waiting, not on window-censored bed-hours."));
+      if (solver.excluded_patient_ids?.length) col.append(el("p", "solver-scope", `${solver.excluded_patient_ids.length} patient(s) without a compatible bed are excluded from the finite optimization objective and remain in the reported cohort waiting metrics.`));
+      columns.append(col);
+    }
+    root.append(columns, el("p", "solver-total", `Full-cohort eventual waiting: baseline ${fmt(data.baseline.summary.full_plan_wait_hours)} h; CCN ${fmt(data.ccn.summary.full_plan_wait_hours)} h. A dash means at least one patient has no compatible bed.`));
+  }
+
+  function dirty() { if (!state.draft) return; try { localStorage.setItem(storageKey, JSON.stringify(state.draft)); } catch (_) {} const stale = Boolean(state.lastRun) && JSON.stringify(state.draft) !== JSON.stringify(state.submitted); $("dynamic-stale").hidden = !stale; $("dynamic-result-status").textContent = state.busy ? "Running…" : stale ? "Draft changed" : state.lastRun ? "Run complete" : "Ready to run"; $("dynamic-result-status").className = `result-status${stale ? " stale" : state.lastRun ? " complete" : ""}`; $("dynamic-draft-name").textContent = state.draft.name || "Untitled scenario"; $("dynamic-draft-summary").textContent = summary(state.draft); renderDraftExperiment(); }
   function nextId(prefix, entities) { let n = 1; const ids = new Set(entities.map(item => item.id)); while (ids.has(`${prefix}${n}`)) n++; return `${prefix}${n}`; }
   function section(key, title, count, content) { const node = el("details", "editor-section"); node.dataset.section = key; const caption = el("summary", "", title); caption.append(el("span", "section-count", count)); node.append(caption, content); return node; }
   function rename(kind, index, value, control) { const entities = state.draft[kind], oldId = entities[index].id, newId = value.trim(); if (!newId || entities.some((item, i) => i !== index && item.id === newId)) { control.value = oldId; message("IDs must be non-empty and unique within each entity type."); return; } entities[index].id = newId; if (kind === "hospitals") state.draft.patients.forEach(p => { if (p.hospital_id === oldId) p.hospital_id = newId; }); if (kind === "snfs") { state.draft.beds.forEach(b => { if (b.snf_id === oldId) b.snf_id = newId; }); state.draft.patients.forEach(p => { p.eligible_snf_ids = p.eligible_snf_ids.map(id => id === oldId ? newId : id); }); } dirty(); renderEditor(); message("ID and linked references updated."); }
@@ -54,7 +144,7 @@
     return s;
   }
   async function api(url, options) { const response = await fetch(url, options); let data; try { data = await response.json(); } catch (_) { throw new Error("The server did not return JSON. Check that the scenario lab server is running."); } if (!response.ok) { const detail = data.error || data.detail || data.message || `Request failed (${response.status}).`; throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail)); } return data; }
-  async function run(event) { event.preventDefault(); if (state.busy) return; stopPlayback(); showError("dynamic-run-error", ""); showError("dynamic-config-error", ""); let submitted; try { submitted = clone(validate(state.draft)); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); return; } state.busy = true; setBusy(true); dirty(); try { const data = await api("/api/dynamic/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: submitted }) }); stopPlayback(); state.lastRun = data; state.submitted = submitted; state.runTime = new Date().toISOString(); state.hour = 0; state.selected = null; state.hospitalFilter = ""; state.snfFilter = ""; state.search = ""; state.tablePage = 0; state.eventPage = 0; state.expandedWards.clear(); renderResults(); $("dynamic-config-dialog").close(); message("Run complete. Playback uses these saved inputs and results."); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); } finally { state.busy = false; setBusy(false); dirty(); } }
+  async function run(event) { event.preventDefault(); if (state.busy) return; stopPlayback(); showError("dynamic-run-error", ""); showError("dynamic-config-error", ""); let submitted; try { submitted = clone(validate(state.draft)); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); return; } state.busy = true; setBusy(true); dirty(); try { const data = await api("/api/dynamic/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: submitted }) }); stopPlayback(); state.lastRun = data; state.submitted = submitted; state.runExperiment = experimentFor(submitted) ? clone(experimentFor(submitted)) : null; state.runTime = new Date().toISOString(); state.hour = 0; state.selected = null; state.hospitalFilter = ""; state.snfFilter = ""; state.search = ""; state.tablePage = 0; state.eventPage = 0; state.expandedWards.clear(); renderResults(); $("dynamic-config-dialog").close(); message("Run complete. Playback uses these saved inputs and results."); } catch (error) { showError($("dynamic-config-dialog").open ? "dynamic-config-error" : "dynamic-run-error", error.message); } finally { state.busy = false; setBusy(false); dirty(); } }
   function setBusy(busy) { for (const id of ["dynamic-run", "dynamic-quick-run"]) { $(id).disabled = busy; $(id).textContent = busy ? "Simulating…" : "Run comparison →"; } }
   function metric(title, baseline, ccn, foot, primary = false, suffix = "") { const node = el("div", `overview-card${primary ? " primary-card" : ""}`); node.append(el("h4", "", title)); for (const [key, label, value] of [["baseline", "Baseline", baseline], ["ccn", "CCN", ccn]]) { const number = el("div", `overview-value ${key}`, `${fmt(value)}${suffix}`); number.append(el("small", "", label)); node.append(number); } node.append(el("p", "", foot)); return node; }
   function renderResults() {
@@ -62,9 +152,7 @@
     state.patientIndex = new Map(s.patients.map((p, i) => [p.id, i])); state.maps = Object.fromEntries(["baseline", "ccn"].map(key => [key, new Map(data[key].patients.map(p => [p.patient_id, p]))]));
     $("dynamic-empty").hidden = true; $("dynamic-output").hidden = false; $("dynamic-run-name").textContent = `PLAYING: ${s.name}`; $("dynamic-run-subtitle").textContent = summary(s);
     const savings = data.comparison.blocked_bed_hours_saved; $("dynamic-metrics").replaceChildren(metric("WAITING AFTER READY / FULL OBSERVATION WINDOW", b.blocked_bed_hours, c.blocked_bed_hours, `${fmt(Math.abs(savings))} ${savings < 0 ? "more" : "fewer"} hospital bed-hours with CCN`, true, " h"), metric("ADMITTED BY WINDOW END", b.placed_count, c.placed_count, `${b.waiting_count} baseline / ${c.waiting_count} CCN still waiting`), metric("SNF CAPACITY USED", b.snf_utilization == null ? null : b.snf_utilization * 100, c.snf_utilization == null ? null : c.snf_utilization * 100, "Occupied bed-hours / available capacity-hours", false, "%"));
-    const descriptions = []; for (const key of ["baseline", "ccn"]) { const solver = data[key].solver; if (!solver) continue; const label = key === "baseline" ? "Local planning subproblems" : "CCN joint planning", status = solver.status === "optimal" ? "optimal for the supplied simplified problem" : solver.status === "search_limited" ? "best feasible plan found within the search budget; optimality is unproven" : "feasible heuristic plan; optimality is unproven"; descriptions.push(`${label}: ${status}.`); }
-    descriptions.push(`Eventual waiting including plans after this window: baseline ${fmt(b.full_plan_wait_hours)} h; CCN ${fmt(c.full_plan_wait_hours)} h. A dash means at least one patient has no compatible bed.`);
-    $("dynamic-solver-note").textContent = descriptions.join(" "); $("dynamic-solver-note").className = `solver-note${data.ccn.solver && data.ccn.solver.status !== "optimal" ? " warning" : ""}`;
+    renderRunExperiment(); renderSolverDiagnostics();
     $("dynamic-time").max = s.horizon_hours; $("dynamic-time").step = Math.min(0.25, s.horizon_hours / 100); $("dynamic-time").value = 0; $("dynamic-range-end").textContent = clock(s.horizon_hours);
     const filter = $("dynamic-hospital-filter"); filter.replaceChildren(); const all = el("option", "", "All hospitals"); all.value = ""; filter.append(all); for (const hospital of s.hospitals) { const option = el("option", "", hospital.id); option.value = hospital.id; filter.append(option); } const snfFilter = $("dynamic-snf-filter"); snfFilter.replaceChildren(); const allSnfs = el("option", "", "All SNFs"); allSnfs.value = ""; snfFilter.append(allSnfs); for (const snf of s.snfs) { const option = el("option", "", snf.id); option.value = snf.id; snfFilter.append(option); } $("dynamic-patient-search").value = ""; $("dynamic-patient-options").replaceChildren(); for (const patient of s.patients) { const option = el("option"); option.value = patient.id; option.label = patient.hospital_id; $("dynamic-patient-options").append(option); }
     $("dynamic-assumptions").replaceChildren(); for (const text of data.assumptions || []) $("dynamic-assumptions").append(el("li", "", text));
@@ -126,12 +214,18 @@
   $("dynamic-form").addEventListener("submit", run);
   $("dynamic-config-open").addEventListener("click", () => { stopPlayback(); $("dynamic-config-dialog").showModal(); });
   $("dynamic-config-close").addEventListener("click", () => $("dynamic-config-dialog").close());
+  $("dynamic-experiment").addEventListener("change", renderExperimentSelection);
+  $("dynamic-load-experiment").addEventListener("click", () => {
+    const experiment = state.experiments.find(item => item.id === $("dynamic-experiment").value); if (!experiment) return;
+    state.draft = defaultFields(experiment.scenario); state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor();
+    message(`Loaded ${experiment.title}. Run to update the comparison.`); showError("dynamic-config-error", "");
+  });
   $("dynamic-load").addEventListener("click", () => { const example = state.examples[Number($("dynamic-example").value)]; if (!example) return; state.draft = defaultFields(example); state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); message("Example loaded into the draft. Run to update the scene."); showError("dynamic-config-error", ""); });
   $("dynamic-generator").addEventListener("submit", async event => { event.preventDefault(); if (state.generating) return; const config = Object.fromEntries([...new FormData(event.currentTarget)].map(([key, value]) => [key, Number(value)])); state.generating = true; $("dynamic-generate").disabled = true; $("dynamic-generate").textContent = "Generating…"; showError("dynamic-config-error", ""); try { const result = await api("/api/dynamic/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }); state.draft = defaultFields(result.scenario || result); validate(state.draft); state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); message("Synthetic network generated. Run to compare the strategies."); } catch (error) { showError("dynamic-config-error", error.message); } finally { state.generating = false; $("dynamic-generate").disabled = false; $("dynamic-generate").textContent = "Generate scenario"; } });
   $("dynamic-import").addEventListener("click", () => $("dynamic-import-file").click());
   $("dynamic-import-file").addEventListener("change", async event => { const file = event.target.files[0]; if (!file) return; try { if (file.size > 64 * 1024 * 1024) throw new Error("Import a JSON file smaller than 64 MB."); const data = JSON.parse(await file.text()), scenario = defaultFields(data.scenario || (Array.isArray(data.scenarios) ? data.scenarios[0] : data)); validate(scenario); state.draft = scenario; state.patientPage = 0; state.bedPage = 0; state.editorSearch = ""; dirty(); renderEditor(); showError("dynamic-config-error", ""); message(`Imported ${file.name}. Run to simulate these inputs.${data.scenarios?.length > 1 ? " Loaded the first scenario in the file." : ""}`); } catch (error) { showError("dynamic-config-error", `Import failed: ${error.message}`); } finally { event.target.value = ""; } });
   $("dynamic-export").addEventListener("click", () => { try { validate(state.draft); exportJson(state.draft, "dynamic-scenario.json", "The current editable draft scenario, without results."); } catch (error) { showError("dynamic-config-error", error.message); } });
-  $("dynamic-export-run").addEventListener("click", () => { if (state.lastRun) exportJson({ schema_version: 1, exported_at: new Date().toISOString(), run_at: state.runTime, scenario: clone(state.submitted), results: clone(state.lastRun) }, "dynamic-run.json", "Exact inputs submitted for the last completed run plus its results. New draft edits are excluded."); });
+  $("dynamic-export-run").addEventListener("click", () => { if (state.lastRun) exportJson({ schema_version: 1, exported_at: new Date().toISOString(), run_at: state.runTime, scenario: clone(state.submitted), experiment: clone(state.runExperiment), results: clone(state.lastRun) }, "dynamic-run.json", "Exact inputs submitted for the last completed run plus its results. New draft edits are excluded."); });
   $("dynamic-export-close").addEventListener("click", () => $("dynamic-export-dialog").close()); $("dynamic-export-download").addEventListener("click", download);
   $("dynamic-export-copy").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(state.exportText); $("dynamic-export-message").textContent = `Copied the complete JSON.${state.exportPreviewShortened ? " Preview is shortened." : ""}`; }
@@ -149,6 +243,6 @@
   $("dynamic-log-strategy").addEventListener("change", () => { state.eventPage = 0; renderEvents(); });
   for (const [id, render] of [["dynamic-placement-details", renderPlacements], ["dynamic-journey-details", renderJourneys], ["dynamic-event-details", renderEvents]]) $(id).addEventListener("toggle", () => { if ($(id).open) render(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopPlayback(); });
-  async function init() { try { const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) }; if (!state.examples.length) throw new Error("No dynamic scenarios are available."); state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); }); state.draft = defaultFields(state.examples[0]); try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = defaultFields(validate(defaultFields(JSON.parse(saved)))); message("Restored your latest v2 draft."); } } catch (_) { message("Loaded the larger default scenario."); } $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`; for (const [name, limit] of [["patient_count", state.limits.max_patients], ["bed_count", state.limits.max_beds], ["hospital_count", state.limits.max_facilities], ["snf_count", state.limits.max_facilities]]) $("dynamic-generator").elements[name].max = limit; dirty(); renderEditor(); await run({ preventDefault() {} }); } catch (error) { showError("dynamic-startup-error", error.message); setBusy(true); } }
+  async function init() { try { const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) }; if (!state.examples.length) throw new Error("No dynamic scenarios are available."); state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); }); state.draft = defaultFields(state.examples[0]); try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = defaultFields(validate(defaultFields(JSON.parse(saved)))); message("Restored your latest v2 draft."); } } catch (_) { message("Loaded the larger default scenario."); } $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`; for (const [name, limit] of [["patient_count", state.limits.max_patients], ["bed_count", state.limits.max_beds], ["hospital_count", state.limits.max_facilities], ["snf_count", state.limits.max_facilities]]) $("dynamic-generator").elements[name].max = limit; dirty(); renderEditor(); await loadExperiments(); await run({ preventDefault() {} }); } catch (error) { showError("dynamic-startup-error", error.message); setBusy(true); } }
   init();
 })();

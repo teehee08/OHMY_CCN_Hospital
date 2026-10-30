@@ -26,6 +26,9 @@ MAX_HOURS = 1_000_000
 SEARCH_NODE_LIMIT = 30_000
 SEARCH_SECONDS = 2.0
 EXACT_PATIENT_LIMIT = 8
+CCN_SEARCH_SEED = 20261029
+CCN_CANDIDATE_LIMIT = 1000
+CCN_INSERTION_WORK_BUDGET = 4_000_000
 
 
 def _number(value: Any, label: str, *, positive: bool = False) -> float:
@@ -440,10 +443,121 @@ def _local_baseline(s: Scenario, options: list[tuple[int, ...]]) -> tuple[dict[i
                     "subproblem_status_counts": counts, "optimized_patient_count": len(actual)}, logs
 
 
+def validate_plan(s: Scenario, plan: dict[int, Booking]) -> None:
+    """Check a complete eventual plan, excluding only incompatible patients.
+
+    This validates the final schedule rather than treating planned times as
+    observed admissions. It has no observation-horizon cutoff. Public callers
+    receive ``None`` on success and ``ValueError`` for an invalid plan.
+    """
+    if not isinstance(plan, dict):
+        raise ValueError("A placement plan must be a dictionary of patient indices to bookings")
+    expected = {i for i, choices in enumerate(_options(s)) if choices}
+    if any(type(i) is not int for i in plan) or set(plan) != expected:
+        raise ValueError("A placement plan must contain every compatible patient exactly once")
+    insurance = dict(s.accepted_insurances)
+    intervals: list[list[tuple[float, float, int]]] = [[] for _ in s.beds]
+    for i, booking in plan.items():
+        if not isinstance(booking, Booking) or type(booking.bed) is not int or not 0 <= booking.bed < len(s.beds):
+            raise ValueError(f"Patient {s.patients[i].id} has an invalid bed booking")
+        p, bed = s.patients[i], s.beds[booking.bed]
+        if any(isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at)
+               for at in (booking.start, booking.end)):
+            raise ValueError(f"Patient {p.id} has a nonfinite booking time")
+        if booking.start < p.ready_hour or booking.end != round(booking.start + p.length_of_stay_hours, 9):
+            raise ValueError(f"Patient {p.id} booking violates readiness or length of stay")
+        accepted = insurance.get(bed.snf_id, ("*",))
+        if (bed.snf_id not in p.eligible_snf_ids or bed.gender not in (p.gender, "any")
+                or ("*" not in accepted and p.insurance_type not in accepted)
+                or not set(p.required_capabilities).issubset(bed.capabilities)):
+            raise ValueError(f"Patient {p.id} booking violates bed compatibility")
+        intervals[booking.bed].append((booking.start, booking.end, i))
+    for bed, rows in zip(s.beds, intervals):
+        rows.sort()
+        if any(previous[1] > following[0] for previous, following in zip(rows, rows[1:])):
+            raise ValueError(f"Overlapping bookings on bed {bed.id}")
+
+
 def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Booking]) -> tuple[dict[int, Booking], dict]:
+    """Keep the prior global plan and search more insertion orders reproducibly.
+
+    Small cases retain the original bounded exact search. Larger cases start
+    from the better of the baseline and the original six global orders, then
+    use a fixed seed and a deterministic amount of multistart/mutation work.
+    The feasible incumbent can never worsen. A nonzero heuristic result is an
+    upper bound on minimum waiting; zero is only a trivial lower bound.
+    """
     plan, metadata = _schedule(s, options, list(range(len(s.patients))), incumbent=baseline,
                                deadline=time.monotonic() + SEARCH_SECONDS, node_limit=SEARCH_NODE_LIMIT)
-    metadata.update(scope="all_hospitals", excluded_patient_ids=[p.id for i, p in enumerate(s.patients) if not options[i]])
+    feasible = [i for i, choices in enumerate(options) if choices]
+    initial_cost = _objective(s, plan)
+    initial_status = metadata["status"]
+    metadata.update(scope="all_hospitals", excluded_patient_ids=[p.id for i, p in enumerate(s.patients) if not options[i]],
+                    method="bounded_exact" if len(feasible) <= EXACT_PATIENT_LIMIT else "seeded_multistart_insertion",
+                    seed=CCN_SEARCH_SEED, candidates_evaluated=0, candidate_budget=0,
+                    initial_objective_hours=initial_cost, initial_status=initial_status,
+                    initial_method=("bounded_exact_with_insertion_incumbents" if len(feasible) <= EXACT_PATIENT_LIMIT
+                                    else "six_global_orders_and_baseline_incumbent"),
+                    baseline_objective_hours=_objective(s, baseline),
+                    lower_bound_hours=initial_cost if initial_status == "optimal" else 0.0,
+                    lower_bound_source="exact_or_zero_wait_certificate" if initial_status == "optimal"
+                                       else "nonnegative_waiting")
+    if len(feasible) <= EXACT_PATIENT_LIMIT or initial_cost == 0:
+        validate_plan(s, plan)
+        return plan, metadata
+
+    # Limit candidate work using only input size, never elapsed wall time. The
+    # occupancy factor also bounds costly calendar scans for crowded few-bed
+    # cases. Default 96-patient inputs receive all 1,000 candidates.
+    occupancy_factor = max(1, math.ceil(len(feasible) / max(1, len(s.beds))))
+    estimated_work = max(1, sum(len(options[i]) for i in feasible) * occupancy_factor)
+    budget = min(CCN_CANDIDATE_LIMIT, max(1, CCN_INSERTION_WORK_BUDGET // estimated_work))
+    rng = random.Random(CCN_SEARCH_SEED)
+    best_cost = initial_cost
+    best_order = None
+    evaluated = 0
+    for trial in range(budget):
+        if best_order and trial % 3:
+            order = best_order[:]
+            for _ in range(rng.randrange(1, 9)):
+                left, right = rng.sample(range(len(order)), 2)
+                order[left], order[right] = order[right], order[left]
+        else:
+            jitter = rng.choice((0, 4, 12, 24, 48, 96, 168))
+            duration = rng.choice((-2, -1, -.25, 0, .25, 1, 2))
+            constraint = rng.choice((-48, -24, 0, 24, 48))
+            order = sorted(feasible, key=lambda i:
+                           s.patients[i].ready_hour + duration * s.patients[i].length_of_stay_hours
+                           + constraint * math.log2(len(options[i])) + rng.uniform(-jitter, jitter))
+        calendars: list[list[tuple[float, float]]] = [[] for _ in s.beds]
+        candidate: dict[int, Booking] = {}
+        random_bed_ties = trial % 5 == 0
+        for i in order:
+            p = s.patients[i]
+            earliest, ties = math.inf, []
+            for b in options[i]:
+                start = _gap(p, calendars[b])
+                if start < earliest:
+                    earliest, ties = start, [b]
+                elif start == earliest:
+                    ties.append(b)
+                if not random_bed_ties and earliest == p.ready_hour:
+                    break
+            bed = rng.choice(ties) if random_bed_ties else ties[0]
+            end = round(earliest + p.length_of_stay_hours, 9)
+            bisect.insort(calendars[bed], (earliest, end))
+            candidate[i] = Booking(bed, earliest, end)
+        evaluated += 1
+        cost = _objective(s, candidate)
+        if cost < best_cost:
+            plan, best_cost, best_order = candidate, cost, order
+        if best_cost == 0:
+            break
+    metadata.update(status="optimal" if best_cost == 0 else "heuristic", objective_hours=best_cost,
+                    candidates_evaluated=evaluated, candidate_budget=budget)
+    if best_cost == 0:
+        metadata["lower_bound_source"] = "zero_wait_certificate"
+    validate_plan(s, plan)
     return plan, metadata
 
 
@@ -544,7 +658,7 @@ def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict |
 ASSUMPTIONS = [
     "Hour 0 is Monday 00:00. All SNF beds start empty; all supplied patients are ready within the observation window.",
     "Hospital-local baseline knows its own current patients and future ready times and stays, plus shared actual bed occupancy and release times. It minimizes its own eventual total waiting, without seeing other hospitals' future demand. Tentative future plans do not reserve SNF beds; conflicting plans are revised after actual admissions.",
-    "CCN knows all hospitals' supplied future ready times, eligibility and SNF stay durations exactly. It minimizes eventual total waiting jointly and retains the hospital-local schedule as a feasible incumbent. Larger cases use deterministic multi-order heuristics; only a proven bound or exhausted exact search is labeled optimal.",
+    "CCN knows all hospitals' supplied future ready times, eligibility and SNF stay durations exactly. It targets eventual total waiting jointly and retains the hospital-local schedule and initial six global insertion orders as feasible incumbents. Larger cases search seeded multistart/mutation insertion orders using a fixed amount of size-scaled work; only a proven bound or exhausted exact search is labeled optimal.",
     "Qualified SNF requests are processed first come, first served. Equal-hour inter-hospital requests use the scenario's reproducible seeded tie break, preserving each hospital's planned priority. Rejected hospitals replan at the same hour, with no artificial retry delay. Requests are submitted only for ready patients at their planned admission time.",
     "Both policies know current compatibility and beds. Admission, hospital departure and confirmation happen together; referral, review, authorization and transport durations are zero.",
     "A bed is reused immediately at admission plus length of stay. SNF eligibility, fixed per-bed gender, accepted insurance and all required bed care capabilities are hard constraints for both policies. An insurance wildcard (*) accepts every plan. Insurance authorization duration is not modeled. SNF list order breaks equal-wait bed choices.",
@@ -562,6 +676,7 @@ def compare(data: dict | Scenario) -> dict:
     else:
         baseline_plan, baseline_solver, requests = _local_baseline(s, options)
     ccn_plan, solver = _ccn(s, options, baseline_plan)
+    validate_plan(s, baseline_plan)
     baseline = _result(s, baseline_plan, "baseline", baseline_solver, requests)
     ccn = _result(s, ccn_plan, "ccn", solver)
     before, after = baseline["summary"], ccn["summary"]
