@@ -1,8 +1,8 @@
 """Reproducible synthetic cohorts for the dynamic placement lab.
 
 Insurance plans and care tags are scenario labels, not real provider contracts.
-Patients have a compatible anchor bed when any beds exist; temporal competition
-can still leave them waiting beyond the observation horizon.
+Patients have a compatible anchor bed when any beds exist. The configured
+arrival span generates this finite cohort; it never stops the simulation.
 """
 
 from __future__ import annotations
@@ -33,6 +33,11 @@ def generate(params: Any = _UNSET) -> dict:
         params = {}
     if not isinstance(params, dict):
         raise ValueError("Generator parameters must be an object")
+    params = dict(params)
+    if "arrival_span_hours" in params:
+        if "horizon_hours" in params and params["horizon_hours"] != params["arrival_span_hours"]:
+            raise ValueError("arrival_span_hours and legacy horizon_hours must agree when both are supplied")
+        params["horizon_hours"] = params.pop("arrival_span_hours")
     unknown = set(params) - set(DEFAULTS)
     if unknown:
         raise ValueError("Unknown generator parameter: " + sorted(unknown)[0])
@@ -44,16 +49,16 @@ def generate(params: Any = _UNSET) -> dict:
     seed = _integer(values["seed"], "seed", 2**32 - 1)
     horizon = values["horizon_hours"]
     if isinstance(horizon, bool) or not isinstance(horizon, (int, float)):
-        raise ValueError("horizon_hours must be a finite positive number")
+        raise ValueError("arrival_span_hours must be a finite positive number")
     try:
         horizon = float(horizon)
     except OverflowError:
-        raise ValueError("horizon_hours must be a finite positive number") from None
+        raise ValueError("arrival_span_hours must be a finite positive number") from None
     if not math.isfinite(horizon) or not 0 < horizon <= 1_000_000:
-        raise ValueError("horizon_hours must be greater than 0 and at most 1000000")
+        raise ValueError("arrival_span_hours must be greater than 0 and at most 1000000")
     horizon = round(float(horizon), 6)
     if horizon <= 0:
-        raise ValueError("horizon_hours must be at least 0.000001")
+        raise ValueError("arrival_span_hours must be at least 0.000001")
     if count and not hospital_count:
         raise ValueError("At least one hospital is required when generating patients")
     if bed_count and not snf_count:
@@ -101,8 +106,9 @@ def generate(params: Any = _UNSET) -> dict:
                          "length_of_stay_hours": rng.choice((12, 24, 36, 48, 72)),
                          "eligible_snf_ids": eligible})
     return {"schema_version": 1,
-            "name": f"{horizon / 24:g} days · {hospital_count} hospitals · {count} patients",
-            "horizon_hours": horizon, "tie_break_seed": seed, "baseline_policy": "local",
+            "name": f"{horizon / 24:g}-day arrivals · {hospital_count} hospitals · {count} patients",
+            "arrival_span_hours": horizon, "horizon_hours": horizon,
+            "tie_break_seed": seed, "baseline_policy": "local",
             "hospitals": hospitals, "snfs": snfs, "beds": beds, "patients": patients}
 
 

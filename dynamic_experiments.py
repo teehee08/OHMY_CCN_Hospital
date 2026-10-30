@@ -104,10 +104,11 @@ def _design(scenario: dict, *, seed: int, family: str, control: str,
         "patient_count": len(scenario["patients"]), "bed_count": len(scenario["beds"]),
         "hospital_count": len(scenario["hospitals"]),
         "active_hospital_count": len({patient["hospital_id"] for patient in scenario["patients"]}),
-        "snf_count": len(scenario["snfs"]), "horizon_hours": scenario["horizon_hours"],
+        "snf_count": len(scenario["snfs"]), "arrival_span_hours": scenario["arrival_span_hours"],
+        "horizon_hours": scenario["arrival_span_hours"],
         "total_offered_snf_hours": offered, "nominal_capacity_bed_hours": capacity,
         "offered_load": offered / capacity,
-        "offered_load_definition": "sum(patient SNF LOS) / (physical bed count * horizon hours)",
+        "offered_load_definition": "sum(patient SNF LOS) / (physical bed count * configured arrival-span hours); not the observation duration",
         "held_constant": held_constant, "comparison_note": comparison_note,
         "empirically_calibrated": False,
         "parameter_basis": "Synthetic stress-test durations, arrival waves, and compatibility labels; not fitted to observed hospital or SNF data.",
@@ -127,9 +128,9 @@ def _load_experiments(seed: int) -> list[dict]:
         design = _design(
             scenario, seed=seed, family="load", control="load_medium", variant=identifier,
             held_constant=["All 96 patient records including IDs, hospital, readiness, LOS, gender, insurance, care and SNF preferences",
-                           "Hospital/SNF IDs, insurance contracts, horizon, baseline policy and tie-break seed",
+                           "Hospital/SNF IDs, insurance contracts, arrival span, baseline policy and tie-break seed",
                            "Relative mix of clinical bed types"],
-            comparison_note="Compare capacity variants within the same seed. Only the number of identical copies of every bed type changes. Offered load includes stays extending beyond the observation horizon; it is not actual utilization.",
+            comparison_note="Compare capacity variants within the same seed. Only the number of identical copies of every bed type changes. Offered load uses the configured ready-generation span, not the complete simulation duration or actual utilization. Observation continues until both schedules finish.",
         )
         design.update(base_bed_type_count=len(prototypes), capacity_multiplier=multiplier,
                       paired_experiment_ids=list(LOAD_MULTIPLIERS))
@@ -215,7 +216,7 @@ def _competition_experiments(seed: int) -> list[dict]:
             scenario, seed=seed, family="competition", control="competition_within", variant=identifier,
             held_constant=["Patient IDs, readiness, SNF LOS, gender, insurance, required care and SNF preferences",
                            "The complete physical bed pool and SNF insurance contracts",
-                           "Four declared hospital IDs, horizon, local baseline policy and tie-break seed"],
+                           "Four declared hospital IDs, arrival-span metadata, local baseline policy and tie-break seed"],
             comparison_note="Only patient hospital assignment changes: all demand belongs to Hospital_A in the control and is evenly split across four hospitals in the variant. The baseline keeps its hospital-local future knowledge and planning in both cases. Outcomes are measured, not guaranteed to favor CCN.",
         )
         design.update(paired_experiment_ids=["competition_within", "competition_cross"],
@@ -242,3 +243,59 @@ def catalog(seed: int = 42) -> list[dict]:
 def build_experiments(seed: int = 42) -> list[dict]:
     """Alias for callers that prefer an explicit builder name."""
     return catalog(seed)
+
+
+PREFERENCE_VARIANTS = ("supplied", "ordinary_first", "shuffled")
+
+
+def preference_variant(experiment: dict, mode: str = "supplied", seed: int = 0) -> dict:
+    """Reorder preferences without changing any patient's compatible bed set.
+
+    This is a declared sensitivity factor, not a way to regenerate demand or
+    select a favorable baseline outcome. Ordinary-first uses only physical
+    capabilities and contracts; it never counts other hospitals' patients.
+    """
+    if mode not in PREFERENCE_VARIANTS:
+        raise ValueError(f"Unknown preference variant: {mode}")
+    seed = _seed(seed)
+    result = deepcopy(experiment)
+    result["base_experiment_id"] = experiment["id"]
+    result["preference_variant"] = mode
+    result["preference_seed"] = seed if mode == "shuffled" else None
+    scenario = result["scenario"]
+    contracts = {snf["id"]: snf["accepted_insurances"] for snf in scenario["snfs"]}
+    rng = random.Random(seed)
+    changed = 0
+    for patient in scenario["patients"]:
+        before = patient["eligible_snf_ids"][:]
+        if mode == "shuffled":
+            rng.shuffle(patient["eligible_snf_ids"])
+        elif mode == "ordinary_first":
+            required = set(patient.get("required_capabilities", []))
+
+            def capacity_cost(snf_id):
+                accepted = contracts[snf_id]
+                if "*" not in accepted and patient.get("insurance_type", "unspecified") not in accepted:
+                    return (float("inf"), float("inf"))
+                return min(((len(set(bed.get("capabilities", [])) - required), int(bed["gender"] == "any"))
+                            for bed in scenario["beds"] if bed["snf_id"] == snf_id
+                            and bed["gender"] in (patient["gender"], "any")
+                            and required.issubset(bed.get("capabilities", []))),
+                           default=(float("inf"), float("inf")))
+
+            patient["eligible_snf_ids"].sort(key=capacity_cost)
+        changed += before != patient["eligible_snf_ids"]
+    design = result["design"]
+    design.update(preference_variant=mode, preference_seed=result["preference_seed"],
+                  preference_changed_patient_count=changed,
+                  compatible_bed_sets_preserved=True)
+    if mode != "supplied":
+        result["id"] = f"{experiment['id']}__{mode}"
+        result["title"] += f" · {mode.replace('_', ' ')} preferences"
+        result["changed_factor"] += "; declared sensitivity: SNF preference order only"
+        design["held_constant"] = [text.replace(" and SNF preferences", "") for text in design["held_constant"]]
+        design["comparison_note"] += (
+            " This preference sensitivity reorders SNF lists only; patients' compatible bed sets,"
+            " ready times, stays, insurance, care, hospitals and physical capacity are unchanged."
+        )
+    return result

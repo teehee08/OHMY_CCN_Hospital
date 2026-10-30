@@ -1,4 +1,4 @@
-"""Behavioral checks for dynamic placement, horizon accounting, and scheduling."""
+"""Behavioral checks for complete-cohort placement, accounting, and scheduling."""
 
 from __future__ import annotations
 
@@ -70,10 +70,19 @@ class DynamicSchedulingTests(unittest.TestCase):
         self.assertEqual(report["ccn"]["summary"]["full_plan_wait_hours"], 0)
         self.assertEqual(report["baseline"]["summary"]["blocked_bed_hours"], 52)
         self.assertEqual(report["ccn"]["summary"]["blocked_bed_hours"], 0)
-        self.assertEqual(report["baseline"]["summary"]["snf_occupied_bed_hours"], 143)
+        self.assertEqual(report["baseline"]["summary"]["snf_occupied_bed_hours"], 168)
         self.assertEqual(report["ccn"]["summary"]["snf_occupied_bed_hours"], 168)
-        self.assertEqual(report["baseline"]["summary"]["completed_count"], 3)
+        self.assertEqual(report["baseline"]["summary"]["completed_count"], 5)
         self.assertEqual(report["ccn"]["summary"]["completed_count"], 5)
+        self.assertEqual(report["observation"]["start_hour"], 10)
+        self.assertEqual(report["observation"]["end_hour"], 87)
+        self.assertEqual(report["observation"]["duration_hours"], 77)
+        self.assertTrue(report["observation"]["complete"])
+        self.assertEqual(report["baseline"]["summary"]["time_to_completion_hours"], 77)
+        self.assertEqual(report["ccn"]["summary"]["time_to_completion_hours"], 53)
+        for strategy in ("baseline", "ccn"):
+            self.assertAlmostEqual(report[strategy]["summary"]["snf_utilization"], 168 / (5 * 77))
+            self._assert_conservation(data, report[strategy], report["observation"])
 
     def test_fifo_uses_readiness_not_json_order_and_los_starts_at_admission(self):
         data = scenario_data([
@@ -89,7 +98,7 @@ class DynamicSchedulingTests(unittest.TestCase):
         self.assertEqual(result["second"]["wait_hours"], 4)
         self.assertEqual(result["late"]["wait_hours"], 3)
 
-    def test_same_hour_release_is_reused_and_horizon_admission_has_zero_area(self):
+    def test_same_hour_release_is_reused_and_full_stays_continue_past_arrival_span(self):
         data = scenario_data([
             patient("first", ready=0, stay=4),
             patient("second", ready=4, stay=2),
@@ -101,48 +110,61 @@ class DynamicSchedulingTests(unittest.TestCase):
                 records = patients_by_id(result)
                 self.assertEqual(records["first"]["status"], "completed")
                 self.assertEqual(records["second"]["admission_hour"], 4)
-                self.assertIsNone(records["second"]["release_hour"])
+                self.assertEqual(records["second"]["release_hour"], 6)
                 self.assertEqual(records["second"]["planned_release_hour"], 6)
-                self.assertEqual(records["second"]["status"], "in_snf")
+                self.assertEqual(records["second"]["status"], "completed")
                 self.assertEqual(records["first"]["bed_id"], records["second"]["bed_id"])
                 self.assertEqual(result["summary"]["placed_count"], 2)
-                self.assertEqual(result["summary"]["completed_count"], 1)
-                self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 4)
+                self.assertEqual(result["summary"]["completed_count"], 2)
+                self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 6)
                 self.assertEqual(result["summary"]["blocked_bed_hours"], 0)
                 self.assertEqual(result["summary"]["snf_utilization"], 1)
                 at_boundary = [item["type"] for item in result["events"]
                                if item["time_hour"] == 4 and item["type"] in ("admit", "release")]
                 self.assertLess(at_boundary.index("release"), at_boundary.index("admit"))
+                boundary = next(item for item in result["snapshots"] if item["time_hour"] == 4)
+                self.assertEqual(boundary["occupied_count"], 1)
+                self.assertEqual(boundary["completed_count"], 1)
                 final = result["snapshots"][-1]
-                self.assertEqual(final["time_hour"], 4)
-                self.assertEqual(final["occupied_count"], 1)
-                self.assertEqual(final["completed_count"], 1)
+                self.assertEqual(final["time_hour"], 6)
+                self.assertEqual(final["occupied_count"], 0)
+                self.assertEqual(final["completed_count"], 2)
 
-    def test_horizon_censors_waiting_but_preserves_the_eventual_plan(self):
+    def test_legacy_arrival_span_does_not_clip_waiting_or_final_releases(self):
         data = scenario_data([
             patient("first", ready=0, stay=10),
             patient("waiting", ready=1, stay=5),
         ], horizon=3)
-        result = compare(data)["baseline"]
+        report = compare(data)
+        result = report["baseline"]
         waiting = patients_by_id(result)["waiting"]
 
-        self.assertEqual(waiting["status"], "waiting")
-        self.assertIsNone(waiting["admission_hour"])
-        self.assertIsNone(waiting["release_hour"])
+        self.assertEqual(waiting["status"], "completed")
+        self.assertEqual(waiting["admission_hour"], 10)
+        self.assertEqual(waiting["release_hour"], 15)
         self.assertEqual(waiting["planned_admission_hour"], 10)
         self.assertEqual(waiting["planned_release_hour"], 15)
         self.assertEqual(waiting["wait_hours"], 9)
-        self.assertEqual(waiting["wait_in_window_hours"], 2)
-        self.assertEqual(result["summary"]["blocked_bed_hours"], 2)
-        self.assertEqual(result["summary"]["mean_observed_wait_hours"], 1)
+        self.assertEqual(waiting["wait_in_window_hours"], 9)
+        self.assertEqual(waiting["wait_through_playback_end_hours"], 9)
+        self.assertEqual(result["summary"]["blocked_bed_hours"], 9)
+        self.assertEqual(result["summary"]["mean_observed_wait_hours"], 4.5)
         self.assertEqual(result["summary"]["mean_observed_wait_hours"],
                          result["summary"]["blocked_bed_hours"] / result["summary"]["patient_count"])
-        self.assertEqual(result["summary"]["mean_wait_hours"], 0)
+        self.assertEqual(result["summary"]["mean_wait_hours"], 4.5)
+        self.assertEqual(result["summary"]["mean_full_plan_wait_hours"], 4.5)
         self.assertEqual(result["summary"]["full_plan_wait_hours"], 9)
-        self.assertEqual(result["summary"]["waiting_count"], 1)
-        self.assertEqual(result["summary"]["placed_count"], 1)
-        self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 3)
-        self.assertTrue(all(0 <= item["time_hour"] <= 3 for item in result["events"]))
+        self.assertEqual(result["summary"]["waiting_count"], 0)
+        self.assertEqual(result["summary"]["placed_count"], 2)
+        self.assertEqual(result["summary"]["completed_count"], 2)
+        self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 15)
+        self.assertEqual(report["observation"]["end_hour"], 16)
+        self.assertEqual(result["summary"]["time_to_completion_hours"], 15)
+        self.assertEqual(report["ccn"]["summary"]["time_to_completion_hours"], 16)
+        self.assertEqual(report["comparison"]["time_to_completion_hours_saved"], -1)
+        self.assertAlmostEqual(result["summary"]["snf_utilization"], 15 / 16)
+        self.assertTrue(any(item["time_hour"] > data["horizon_hours"] for item in result["events"]))
+        self._assert_conservation(data, result, report["observation"])
 
     def test_offline_ccn_can_wait_for_known_future_demand_to_reduce_total_wait(self):
         # Long-first incurs 9 hours; short-first, after one idle hour, incurs 2.
@@ -179,7 +201,7 @@ class DynamicSchedulingTests(unittest.TestCase):
         self.assertEqual(ccn["summary"]["placed_count"], 2)
         self.assertEqual(ccn["summary"]["structurally_unplaceable_patient_ids"], [])
         self.assertEqual(ccn["solver"]["objective_hours"], ccn["summary"]["full_plan_wait_hours"])
-        self._assert_conservation(data, ccn)
+        self._assert_conservation(data, ccn, report["observation"])
 
     def test_unready_future_demand_does_not_change_earlier_baseline_decisions(self):
         future_ready = 6
@@ -227,8 +249,16 @@ class DynamicSchedulingTests(unittest.TestCase):
                     self.assertIsNone(item["planned_admission_hour"])
                     self.assertIsNone(item["planned_release_hour"])
                     self.assertIsNone(item["wait_hours"])
-                    self.assertEqual(item["wait_in_window_hours"], 5)
-                self.assertEqual(result["summary"]["blocked_bed_hours"], 10)
+                    self.assertEqual(item["wait_in_window_hours"], 2)
+                self.assertFalse(report["observation"]["complete"])
+                self.assertIsNone(report["observation"]["end_hour"])
+                self.assertIsNone(report["observation"]["duration_hours"])
+                self.assertEqual(report["observation"]["playback_end_hour"], 2)
+                self.assertIsNone(result["summary"]["blocked_bed_hours"])
+                self.assertIsNone(result["summary"]["full_plan_wait_hours"])
+                self.assertIsNone(result["summary"]["time_to_completion_hours"])
+                self.assertIsNone(result["summary"]["snf_utilization"])
+                self.assertEqual(result["summary"]["observed_wait_to_playback_end_hours"], 4)
                 self.assertEqual(result["summary"]["waiting_count"], 2)
                 self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 4)
 
@@ -242,9 +272,17 @@ class DynamicSchedulingTests(unittest.TestCase):
                 self.assertEqual(result["summary"]["placed_count"], 0)
                 self.assertEqual(result["summary"]["waiting_count"], 1)
                 self.assertEqual(result["summary"]["completed_count"], 0)
-                self.assertEqual(result["summary"]["blocked_bed_hours"], 5)
+                self.assertIsNone(result["summary"]["blocked_bed_hours"])
+                self.assertIsNone(result["summary"]["full_plan_wait_hours"])
+                self.assertIsNone(result["summary"]["time_to_completion_hours"])
+                self.assertIsNone(result["summary"]["snf_utilization"])
                 self.assertEqual(result["summary"]["snf_occupied_bed_hours"], 0)
                 self.assertFalse(any(item["type"] == "admit" for item in result["events"]))
+                self.assertFalse(report["observation"]["complete"])
+                self.assertIsNone(report["observation"]["end_hour"])
+                self.assertEqual(report["observation"]["unresolved_patient_ids"], ["blocked"])
+                self.assertEqual(report["observation"]["start_hour"], 1)
+                self.assertEqual(report["observation"]["playback_end_hour"], 1)
 
     def test_interval_and_population_conservation_for_both_policies(self):
         data = scenario_data([
@@ -257,27 +295,34 @@ class DynamicSchedulingTests(unittest.TestCase):
         report = compare(data)
         for strategy in ("baseline", "ccn"):
             with self.subTest(strategy=strategy):
-                self._assert_conservation(data, report[strategy])
+                self._assert_conservation(data, report[strategy], report["observation"])
 
-    def _assert_conservation(self, data, result):
-        horizon = data["horizon_hours"]
+    def _assert_conservation(self, data, result, observation):
+        first_ready = min((item["ready_hour"] for item in data["patients"]), default=0)
+        playback_end = observation["playback_end_hour"]
         inputs = {item["id"]: item for item in data["patients"]}
         beds = {item["id"]: item for item in data["beds"]}
         records = patients_by_id(result)
         self.assertEqual(set(inputs), set(records))
         intervals = {bed_id: [] for bed_id in beds}
-        expected_blocked = 0
+        expected_observed_wait = 0
+        expected_full_wait = 0
         expected_occupied = 0
+        unresolved = []
         for patient_id, item in records.items():
             original = inputs[patient_id]
             start = item["planned_admission_hour"]
             end = item["planned_release_hour"]
-            waiting_end = horizon if start is None else min(start, horizon)
-            wait_in_window = max(0, waiting_end - original["ready_hour"])
-            self.assertAlmostEqual(item["wait_in_window_hours"], wait_in_window)
-            expected_blocked += wait_in_window
+            waiting_end = playback_end if start is None else start
+            observed_wait = max(0, waiting_end - original["ready_hour"])
+            self.assertAlmostEqual(item["wait_in_window_hours"], observed_wait)
+            self.assertAlmostEqual(item["wait_through_playback_end_hours"], observed_wait)
+            expected_observed_wait += observed_wait
             if start is None:
                 self.assertIsNone(end)
+                self.assertIsNone(item["wait_hours"])
+                self.assertEqual(item["status"], "waiting")
+                unresolved.append(patient_id)
                 continue
             self.assertGreaterEqual(start, original["ready_hour"])
             self.assertAlmostEqual(end - start, original["length_of_stay_hours"])
@@ -286,21 +331,45 @@ class DynamicSchedulingTests(unittest.TestCase):
             self.assertIn(chosen["snf_id"], original["eligible_snf_ids"])
             self.assertIn(chosen["gender"], ("any", original["gender"]))
             self.assertAlmostEqual(item["wait_hours"], start - original["ready_hour"])
+            self.assertEqual(item["admission_hour"], start)
+            self.assertEqual(item["release_hour"], end)
+            self.assertEqual(item["status"], "completed")
             intervals[item["bed_id"]].append((start, end))
-            expected_occupied += max(0, min(end, horizon) - min(start, horizon))
+            expected_occupied += end - start
+            expected_full_wait += start - original["ready_hour"]
 
         for bed_id, occupied in intervals.items():
             ordered = sorted(occupied)
             for previous, following in zip(ordered, ordered[1:]):
                 self.assertLessEqual(previous[1], following[0], msg=f"Overlapping stays on {bed_id}")
-        self.assertAlmostEqual(result["summary"]["blocked_bed_hours"], expected_blocked)
+        self.assertEqual(result["observation"], observation)
+        self.assertEqual(observation["start_hour"], first_ready)
+        self.assertAlmostEqual(result["summary"]["observed_wait_to_playback_end_hours"], expected_observed_wait)
+        self.assertAlmostEqual(result["summary"]["known_placeable_wait_hours"], expected_full_wait)
         self.assertAlmostEqual(result["summary"]["snf_occupied_bed_hours"], expected_occupied)
-        self.assertAlmostEqual(result["summary"]["snf_utilization"], expected_occupied / (horizon * len(beds)))
+        if unresolved:
+            self.assertFalse(observation["complete"])
+            self.assertEqual(set(observation["unresolved_patient_ids"]), set(unresolved))
+            self.assertIsNone(observation["end_hour"])
+            self.assertIsNone(observation["duration_hours"])
+            self.assertIsNone(result["summary"]["blocked_bed_hours"])
+            self.assertIsNone(result["summary"]["full_plan_wait_hours"])
+            self.assertIsNone(result["summary"]["snf_utilization"])
+        else:
+            self.assertTrue(observation["complete"])
+            self.assertAlmostEqual(result["summary"]["blocked_bed_hours"], expected_full_wait)
+            self.assertAlmostEqual(result["summary"]["full_plan_wait_hours"], expected_full_wait)
+            duration = observation["end_hour"] - first_ready
+            self.assertEqual(observation["duration_hours"], duration)
+            if duration and beds:
+                self.assertAlmostEqual(result["summary"]["snf_utilization"], expected_occupied / (duration * len(beds)))
+            else:
+                self.assertIsNone(result["summary"]["snf_utilization"])
 
         times = [item["time_hour"] for item in result["snapshots"]]
         self.assertEqual(times, sorted(set(times)))
-        self.assertEqual(times[0], 0)
-        self.assertEqual(times[-1], horizon)
+        self.assertEqual(times[0], first_ready)
+        self.assertEqual(times[-1], playback_end)
         for snapshot in result["snapshots"]:
             time = snapshot["time_hour"]
             ready = {key for key, value in inputs.items() if value["ready_hour"] <= time}
@@ -333,6 +402,70 @@ class DynamicSchedulingTests(unittest.TestCase):
         self.assertNotEqual(second["baseline"]["patients"][0]["status"], "modified_by_consumer")
         self.assertEqual(data, original)
 
+    def test_common_clock_starts_at_first_ready_without_artificial_initial_idle_time(self):
+        data = scenario_data([patient("P", ready=24, stay=12)], horizon=1)
+        report = compare(data)
+        self.assertEqual(report["scenario"]["horizon_hours"], 1)
+        self.assertEqual(report["scenario"]["arrival_span_hours"], 1)
+        self.assertEqual(report["observation"]["start_hour"], 24)
+        self.assertEqual(report["observation"]["end_hour"], 36)
+        self.assertEqual(report["observation"]["duration_hours"], 12)
+        for strategy in ("baseline", "ccn"):
+            self.assertEqual(report[strategy]["summary"]["time_to_completion_hours"], 12)
+            self.assertEqual(report[strategy]["summary"]["snf_utilization"], 1)
+            self._assert_conservation(data, report[strategy], report["observation"])
+
+    def test_arrival_metadata_does_not_change_the_complete_schedule_or_metrics(self):
+        data = scenario_data([patient("early", ready=2, stay=10),
+                              patient("late", ready=24, stay=3)], horizon=1)
+        longer_metadata = deepcopy(data)
+        longer_metadata["horizon_hours"] = 500
+        first, second = compare(data), compare(longer_metadata)
+        self.assertEqual(first["observation"], second["observation"])
+        for strategy in ("baseline", "ccn"):
+            self.assertEqual(first[strategy]["patients"], second[strategy]["patients"])
+            self.assertEqual(first[strategy]["events"], second[strategy]["events"])
+            for key in ("full_plan_wait_hours", "blocked_bed_hours", "snf_occupied_bed_hours",
+                        "snf_utilization", "time_to_completion_hours"):
+                self.assertEqual(first[strategy]["summary"][key], second[strategy]["summary"][key])
+
+    def test_empty_cohort_has_zero_duration_and_undefined_utilization(self):
+        data = scenario_data([], horizon=500)
+        report = compare(data)
+        self.assertTrue(report["observation"]["complete"])
+        self.assertEqual(report["observation"]["start_hour"], 0)
+        self.assertEqual(report["observation"]["end_hour"], 0)
+        self.assertEqual(report["observation"]["duration_hours"], 0)
+        for strategy in ("baseline", "ccn"):
+            result = report[strategy]
+            self.assertEqual(result["summary"]["blocked_bed_hours"], 0)
+            self.assertEqual(result["summary"]["time_to_completion_hours"], 0)
+            self.assertIsNone(result["summary"]["snf_utilization"])
+            self.assertIsNone(result["summary"]["mean_wait_hours"])
+            self.assertEqual([item["time_hour"] for item in result["snapshots"]], [0])
+            self._assert_conservation(data, result, report["observation"])
+
+    def test_late_unplaceable_patient_prevents_fake_completion_at_last_feasible_release(self):
+        data = scenario_data([
+            patient("feasible", ready=24, stay=2),
+            patient("unplaceable", ready=100, stay=2, gender="male"),
+        ], beds=[bed("female", gender="female")], horizon=1)
+        report = compare(data)
+        self.assertFalse(report["observation"]["complete"])
+        self.assertEqual(report["observation"]["start_hour"], 24)
+        self.assertIsNone(report["observation"]["end_hour"])
+        self.assertIsNone(report["observation"]["duration_hours"])
+        self.assertEqual(report["observation"]["playback_end_hour"], 100)
+        for strategy in ("baseline", "ccn"):
+            result = report[strategy]
+            self.assertEqual(patients_by_id(result)["feasible"]["release_hour"], 26)
+            self.assertIsNone(result["summary"]["time_to_completion_hours"])
+            self.assertIsNone(result["summary"]["blocked_bed_hours"])
+            self.assertEqual(result["snapshots"][-1]["time_hour"], 100)
+            self.assertEqual(result["snapshots"][-1]["waiting_patient_ids"], ["unplaceable"])
+            self.assertEqual(result["snapshots"][-1]["completed_count"], 1)
+            self._assert_conservation(data, result, report["observation"])
+
     def test_ccn_eventual_wait_is_not_worse_on_small_competing_cases(self):
         cases = [
             scenario_data([patient("a", stay=9), patient("b", stay=1), patient("c", ready=2, stay=2)]),
@@ -347,14 +480,14 @@ class DynamicSchedulingTests(unittest.TestCase):
                 report = compare(data)
                 self.assertLessEqual(report["ccn"]["summary"]["full_plan_wait_hours"],
                                      report["baseline"]["summary"]["full_plan_wait_hours"] + 1e-9)
-                self._assert_conservation(data, report["baseline"])
-                self._assert_conservation(data, report["ccn"])
+                self._assert_conservation(data, report["baseline"], report["observation"])
+                self._assert_conservation(data, report["ccn"], report["observation"])
 
 
 class DynamicValidationTests(unittest.TestCase):
     def test_invalid_times_are_rejected_before_simulation(self):
         for field, values in (
-            ("ready_hour", (-1, 25, math.nan, math.inf, "1", True)),
+            ("ready_hour", (-1, math.nan, math.inf, "1", True)),
             ("length_of_stay_hours", (0, -1, math.nan, math.inf, "2", True)),
         ):
             for value in values:

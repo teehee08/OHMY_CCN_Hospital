@@ -59,16 +59,16 @@ class GlobalSolverTests(unittest.TestCase):
                 for policy in ("baseline", "ccn"):
                     self.assertTrue(audit_result(result["scenario"], result[policy])["passed"])
 
-    def test_original_96_patient_input_improves_without_changing_baseline(self):
+    def test_original_96_patient_input_uses_rational_local_baseline_and_global_search(self):
         original = Scenario.from_dict(generate()).to_dict()
         result = compare(original)
         self.assertEqual(original, result["scenario"])
-        self.assertEqual(result["baseline"]["summary"]["full_plan_wait_hours"], 1029)
-        self.assertEqual(result["baseline"]["summary"]["blocked_bed_hours"], 912)
+        self.assertEqual(result["baseline"]["summary"]["full_plan_wait_hours"], 871)
+        self.assertEqual(result["baseline"]["summary"]["blocked_bed_hours"], 871)
         solver = result["ccn"]["solver"]
         self.assertEqual(solver["initial_objective_hours"], 858)
         self.assertLessEqual(result["ccn"]["summary"]["full_plan_wait_hours"], 574)
-        self.assertLessEqual(result["ccn"]["summary"]["blocked_bed_hours"], 531)
+        self.assertEqual(result["ccn"]["summary"]["blocked_bed_hours"], result["ccn"]["summary"]["full_plan_wait_hours"])
         self.assertEqual(solver["candidates_evaluated"], 1000)
         self.assertEqual(solver["status"], "heuristic")
         self.assertEqual(solver["lower_bound_hours"], 0)

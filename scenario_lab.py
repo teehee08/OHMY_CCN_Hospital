@@ -42,6 +42,7 @@ STATIC_FILES = {
     "/dynamic": ("dynamic.html", "text/html; charset=utf-8"),
     "/dynamic/": ("dynamic.html", "text/html; charset=utf-8"),
     "/dynamic.js": ("dynamic.js", "text/javascript; charset=utf-8"),
+    "/dynamic_metrics.js": ("dynamic_metrics.js", "text/javascript; charset=utf-8"),
     "/dynamic.css": ("dynamic.css", "text/css; charset=utf-8"),
 }
 ASSUMPTIONS = {
@@ -68,7 +69,7 @@ ASSUMPTIONS = {
 }
 
 
-def _validate_json(value: Any) -> None:
+def _validate_json(value: Any, *, max_number: int = MAX_NUMBER) -> None:
     """Reject non-JSON values and numbers that could overflow model arithmetic."""
     pending = [(value, 0)]
     visited = 0
@@ -82,8 +83,8 @@ def _validate_json(value: Any) -> None:
         if isinstance(item, (int, float)):
             if isinstance(item, float) and not math.isfinite(item):
                 raise ValueError("Scenario numbers must be finite")
-            if abs(item) > MAX_NUMBER:
-                raise ValueError(f"Scenario numbers must be between {-MAX_NUMBER} and {MAX_NUMBER}")
+            if abs(item) > max_number:
+                raise ValueError(f"Scenario numbers must be between {-max_number} and {max_number}")
         elif isinstance(item, list):
             pending.extend((child, depth + 1) for child in item)
         elif isinstance(item, dict):
@@ -342,10 +343,10 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
             if not isinstance(payload, dict):
                 raise ValueError("Request body must be an object")
             if path == "/api/dynamic/generate":
-                _validate_json(payload)
+                _validate_json(payload, max_number=2**32 - 1)
                 response = dynamic_model.Scenario.from_dict(dynamic_scenarios.generate(payload)).to_dict()
             elif path == "/api/dynamic/run":
-                _validate_json(payload.get("scenario"))
+                _validate_json(payload.get("scenario"), max_number=2**32 - 1)
                 response = dynamic_model.compare(payload.get("scenario"))
             else:
                 response = run_experiment(payload.get("mode"), payload.get("scenario"))

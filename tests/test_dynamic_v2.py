@@ -111,12 +111,16 @@ class HospitalLocalPlanningTests(unittest.TestCase):
         result = compare(data)["baseline"]
         records = by_patient(result)
         self.assertEqual(records["leftover"]["ready_hour"], 1)
-        self.assertEqual(records["leftover"]["wait_in_window_hours"], 7)
-        self.assertEqual(records["new_arrival"]["wait_in_window_hours"], 5)
-        self.assertEqual(result["summary"]["blocked_bed_hours"], 12)
+        self.assertEqual(records["leftover"]["wait_in_window_hours"], 10)
+        self.assertEqual(records["new_arrival"]["wait_in_window_hours"], 7)
+        self.assertEqual(result["summary"]["blocked_bed_hours"], 17)
+        before_release = next(row for row in reversed(result["snapshots"]) if row["time_hour"] <= 8)
+        self.assertEqual(set(before_release["waiting_patient_ids"]), {"leftover", "new_arrival"})
+        self.assertEqual(before_release["hospital_waiting"]["A"], 2)
         final = result["snapshots"][-1]
-        self.assertEqual(set(final["waiting_patient_ids"]), {"leftover", "new_arrival"})
-        self.assertEqual(final["hospital_waiting"]["A"], 2)
+        self.assertEqual(final["waiting_patient_ids"], [])
+        self.assertEqual(final["completed_count"], 3)
+        self.assertEqual(records["leftover"]["ready_hour"], 1)
         self.assertEqual(records["leftover"]["wait_hours"],
                          records["leftover"]["planned_admission_hour"] - 1)
 
@@ -203,7 +207,8 @@ class DynamicClinicalConstraintTests(unittest.TestCase):
         ], beds=[make_bed("public_bed", gender="female", care=("dialysis",)),
                  make_bed("commercial_bed", "S2"), make_bed("wildcard_bed", "S3")],
            snfs=snfs, horizon=10)
-        for policy, result in ((key, compare(data)[key]) for key in ("baseline", "ccn")):
+        report = compare(data)
+        for policy, result in ((key, report[key]) for key in ("baseline", "ccn")):
             with self.subTest(policy=policy):
                 records = by_patient(result)
                 self.assertEqual(records["public_dialysis"]["snf_id"], "S1")
@@ -211,10 +216,19 @@ class DynamicClinicalConstraintTests(unittest.TestCase):
                 self.assertEqual(records["wildcard"]["snf_id"], "S3")
                 blocked = {"wrong_insurance", "missing_care", "wrong_gender", "no_eligible"}
                 self.assertEqual(set(result["summary"]["structurally_unplaceable_patient_ids"]), blocked)
-                self.assertEqual(result["summary"]["blocked_bed_hours"], 40)
+                self.assertIsNone(result["summary"]["blocked_bed_hours"])
+                self.assertIsNone(result["summary"]["full_plan_wait_hours"])
+                self.assertIsNone(result["summary"]["time_to_completion_hours"])
+                self.assertIsNone(result["summary"]["snf_utilization"])
+                self.assertEqual(result["summary"]["observed_wait_to_playback_end_hours"], 8)
+                self.assertFalse(report["observation"]["complete"])
+                self.assertIsNone(report["observation"]["end_hour"])
+                self.assertEqual(set(report["observation"]["unresolved_patient_ids"]), blocked)
+                self.assertEqual(report["observation"]["playback_end_hour"], 2)
                 for identifier in blocked:
                     self.assertIsNone(records[identifier]["planned_admission_hour"])
-                    self.assertEqual(records[identifier]["wait_in_window_hours"], 10)
+                    self.assertIsNone(records[identifier]["wait_hours"])
+                    self.assertEqual(records[identifier]["wait_in_window_hours"], 2)
 
     def test_capabilities_are_required_as_a_set_on_the_same_bed(self):
         data = make_scenario([
@@ -265,6 +279,7 @@ class GeneratedDynamicScenarioTests(unittest.TestCase):
         self.assertEqual(len(canonical["snfs"]), 6)
         self.assertEqual(len(canonical["beds"]), 24)
         self.assertEqual(canonical["horizon_hours"], 168)
+        self.assertEqual(canonical["arrival_span_hours"], 168)
         self.assertGreater(max(row["ready_hour"] for row in canonical["patients"]), 72)
         self.assertGreater(len({row["insurance_type"] for row in canonical["patients"]}), 1)
         self.assertTrue(any(row["required_capabilities"] for row in canonical["patients"]))
@@ -290,22 +305,34 @@ class GeneratedDynamicScenarioTests(unittest.TestCase):
         self.assertEqual(scenario.horizon_hours, 336)
         self.assertEqual(len({row["id"] for row in data["patients"]}), 240)
 
-    def test_empty_populations_and_no_beds_remain_valid_and_censored(self):
+    def test_empty_populations_complete_at_zero_but_no_bed_cohorts_cannot_complete(self):
         from dynamic_scenarios import generate
 
         empty = generate({"patient_count": 0, "hospital_count": 0,
                           "snf_count": 0, "bed_count": 0, "horizon_hours": 24})
         empty_result = compare(empty)
+        self.assertTrue(empty_result["observation"]["complete"])
+        self.assertEqual(empty_result["observation"]["duration_hours"], 0)
         for policy in ("baseline", "ccn"):
             self.assertEqual(empty_result[policy]["summary"]["patient_count"], 0)
             self.assertEqual(empty_result[policy]["summary"]["blocked_bed_hours"], 0)
+            self.assertEqual(empty_result[policy]["summary"]["time_to_completion_hours"], 0)
+            self.assertIsNone(empty_result[policy]["summary"]["snf_utilization"])
         blocked = generate({"patient_count": 3, "hospital_count": 1,
                             "snf_count": 0, "bed_count": 0, "horizon_hours": 24})
         result = compare(blocked)
-        expected_wait = sum(24 - row["ready_hour"] for row in blocked["patients"])
+        last_ready = max(row["ready_hour"] for row in blocked["patients"])
+        expected_partial_wait = sum(last_ready - row["ready_hour"] for row in blocked["patients"])
+        self.assertFalse(result["observation"]["complete"])
+        self.assertIsNone(result["observation"]["end_hour"])
+        self.assertEqual(result["observation"]["playback_end_hour"], last_ready)
         for policy in ("baseline", "ccn"):
             self.assertEqual(result[policy]["summary"]["placed_count"], 0)
-            self.assertAlmostEqual(result[policy]["summary"]["blocked_bed_hours"], expected_wait)
+            self.assertIsNone(result[policy]["summary"]["blocked_bed_hours"])
+            self.assertIsNone(result[policy]["summary"]["full_plan_wait_hours"])
+            self.assertIsNone(result[policy]["summary"]["time_to_completion_hours"])
+            self.assertIsNone(result[policy]["summary"]["snf_utilization"])
+            self.assertAlmostEqual(result[policy]["summary"]["observed_wait_to_playback_end_hours"], expected_partial_wait)
 
     def test_generator_rejects_bad_counts_seed_and_inconsistent_empty_facilities(self):
         from dynamic_scenarios import generate

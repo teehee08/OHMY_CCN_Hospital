@@ -81,7 +81,31 @@ class DynamicLabHttpTests(unittest.TestCase):
         self.assertEqual(result, json.loads(json.dumps(dynamic_model.compare(data), allow_nan=False)))
         self.assertEqual(result["baseline"]["summary"]["blocked_bed_hours"], 52)
         self.assertEqual(result["ccn"]["summary"]["blocked_bed_hours"], 0)
+        self.assertEqual(result["observation"]["start_hour"], 10)
+        self.assertEqual(result["observation"]["end_hour"], 87)
+        self.assertEqual(result["observation"]["duration_hours"], 77)
+        self.assertTrue(result["observation"]["complete"])
+        for policy in ("baseline", "ccn"):
+            self.assertEqual(result[policy]["summary"]["completed_count"], 5)
+            self.assertEqual(result[policy]["summary"]["snf_occupied_bed_hours"], 168)
+            self.assertTrue(all(patient["status"] == "completed" for patient in result[policy]["patients"]))
         self.assertTrue(result["assumptions"])
+
+    def test_readiness_after_legacy_arrival_span_is_valid_and_observed_to_completion(self):
+        data = default_scenario()
+        data["patients"] = [data["patients"][0]]
+        data["patients"][0].update(ready_hour=100, length_of_stay_hours=2)
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": data})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["scenario"]["arrival_span_hours"], 72)
+        self.assertEqual(report["observation"]["start_hour"], 100)
+        self.assertEqual(report["observation"]["end_hour"], 102)
+        self.assertEqual(report["observation"]["duration_hours"], 2)
+        for policy in ("baseline", "ccn"):
+            self.assertEqual(report[policy]["patients"][0]["admission_hour"], 100)
+            self.assertEqual(report[policy]["patients"][0]["release_hour"], 102)
+            self.assertEqual(report[policy]["summary"]["time_to_completion_hours"], 2)
+            self.assertEqual(report[policy]["summary"]["blocked_bed_hours"], 0)
 
     def test_original_examples_keep_exactly_three_legacy_modes(self):
         status, result = self.request_json("GET", "/api/examples")
@@ -151,10 +175,26 @@ class DynamicLabHttpTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertTrue(result.get("error"))
 
+    def test_full_unsigned_seed_range_survives_http_and_model_validation(self):
+        for seed in (1_000_000_001, 2**31, 2**32 - 1):
+            with self.subTest(seed=seed):
+                status, scenario = self.request_json("POST", "/api/dynamic/generate", {
+                    "patient_count": 2, "hospital_count": 2, "snf_count": 1,
+                    "bed_count": 1, "horizon_hours": 24, "seed": seed})
+                self.assertEqual(status, 200)
+                self.assertEqual(scenario["tie_break_seed"], seed)
+                status, result = self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})
+                self.assertEqual(status, 200)
+                self.assertEqual(result["scenario"]["tie_break_seed"], seed)
+        scenario = default_scenario()
+        scenario["tie_break_seed"] = 2**32
+        self.assertEqual(self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})[0], 400)
+
     def test_dynamic_assets_are_served_with_their_content_types_and_support_head(self):
         for path, content_type in (
             ("/dynamic", "text/html"),
             ("/dynamic.js", "text/javascript"),
+            ("/dynamic_metrics.js", "text/javascript"),
             ("/dynamic.css", "text/css"),
         ):
             with self.subTest(path=path):
@@ -167,13 +207,38 @@ class DynamicLabHttpTests(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertEqual(head_body, b"")
 
+    def test_optimizer_seed_and_full_cohort_fairness_survive_http(self):
+        scenario = {"name": "Distribution tradeoff", "hospitals": [{"id": "A"}, {"id": "B"}],
+                    "snfs": [{"id": "S"}], "beds": [{"id": "b", "snf_id": "S", "gender": "any"}],
+                    "tie_break_seed": 17, "optimizer_seed": 2**32 - 1,
+                    "patients": [
+                        {"id": "long", "hospital_id": "A", "gender": "female", "ready_hour": 0,
+                         "length_of_stay_hours": 10, "eligible_snf_ids": ["S"]},
+                        {"id": "short", "hospital_id": "B", "gender": "male", "ready_hour": 1,
+                         "length_of_stay_hours": 1, "eligible_snf_ids": ["S"]}]}
+        status, report = self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})
+        self.assertEqual(status, 200)
+        self.assertEqual(report["scenario"]["optimizer_seed"], 2**32 - 1)
+        self.assertEqual(report["ccn"]["solver"]["seed"], 2**32 - 1)
+        self.assertTrue(report["ccn"]["solver"]["search_independent_of_baseline"])
+        fairness = report["fairness"]
+        self.assertTrue(fairness["defined"])
+        self.assertEqual(fairness["patients"]["improved_count"], 1)
+        self.assertEqual(fairness["patients"]["worsened_count"], 1)
+        self.assertEqual(fairness["patients"]["unchanged_count"], 0)
+        self.assertEqual(fairness["baseline"]["total_wait_hours"], 9)
+        self.assertEqual(fairness["ccn"]["total_wait_hours"], 2)
+        self.assertEqual(fairness["patients"]["max_increase_wait_hours"], 2)
+        scenario["optimizer_seed"] = 2**32
+        self.assertEqual(self.request_json("POST", "/api/dynamic/run", {"scenario": scenario})[0], 400)
+
     def test_invalid_shapes_references_and_times_return_json_400(self):
         invalid_reference = default_scenario()
         invalid_reference["patients"][0]["hospital_id"] = "unknown_hospital"
         invalid_stay = default_scenario()
         invalid_stay["patients"][0]["length_of_stay_hours"] = 0
         invalid_ready = default_scenario()
-        invalid_ready["patients"][0]["ready_hour"] = invalid_ready["horizon_hours"] + 1
+        invalid_ready["patients"][0]["ready_hour"] = -1
         for value in (None, [], {}, {"scenario": None}, {"scenario": []},
                       {"scenario": invalid_reference}, {"scenario": invalid_stay}, {"scenario": invalid_ready}):
             with self.subTest(value=value):
