@@ -21,6 +21,7 @@ import phase2
 import dynamic_model
 import dynamic_scenarios
 import dynamic_experiments
+import staffing_scenarios
 
 
 ROOT = Path(__file__).resolve().parent
@@ -36,6 +37,7 @@ EXAMPLE_FILES = {
     "clinical": "phase2_examples.json",
 }
 STATIC_FILES = {
+    "/staffing": ("dynamic.html", "text/html; charset=utf-8"),
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
@@ -273,6 +275,8 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
                 self._json(200, examples(), head=head)
             except (OSError, ValueError, KeyError):
                 self._error(500, "The example scenarios could not be loaded", head=head)
+        elif path == "/api/staffing/example":
+            self._json(200, staffing_scenarios.example(), head=head)
         elif path == "/api/dynamic/examples":
             try:
                 self._json(200, dynamic_model.examples(), head=head)

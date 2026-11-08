@@ -68,7 +68,55 @@ existing experiments separately.
 The local server and browser assets use the Python standard library and native
 browser features. No additional packages or build step are needed.
 
-### Dynamic placement: Patient Flow Studio
+### V4 staffing: local interactive demo
+
+Run `python scenario_lab.py --port 8766`, then open
+`http://127.0.0.1:8766/dynamic`. Open **Configure scenario → SNF staffing & nursing
+resources**. Staffing uses the original Patient Flow Studio design, scenes,
+playback and import/export, with optional role-specific nursing constraints.
+Existing inputs without staffing retain their original behavior.
+
+The demo follows 18 synthetic patients across three hospitals and two SNFs.
+Choose full supply, 60% supply, night RN shortage, or uneven supply, then **Load
+staffing example**. Alternatively, **Enable staffing constraints** retains your
+current cohort and adds synthetic staffing inputs. Edit daily shift hours in the
+staffing table and RN/LPN/CNA care hours/day in the existing patient cards. Run
+the comparison and play/scrub the original scenes; **SNF staffing at the shared
+clock** reports each role's used/available capacity. Existing JSON import/export
+retains both staffing inputs and completed-run results. `/staffing` remains an
+alias for the original dynamic interface.
+
+`scenarios/staffing_v4.json` defines the replaceable input contract:
+
+- `staffing.schedule_type`: `daily_repeating`.
+- `staffing.shifts`: each SNF must have non-overlapping shifts covering 0–24.
+  Each row has `snf_id`, `start_hour`, `end_hour`, and `direct_care_hours`
+  containing nonnegative RN, LPN and CNA hours available in that shift.
+- Each patient supplies `care_hours_per_day` for RN, LPN and CNA. Demand is
+  constant throughout the stay, including partial shifts.
+- Supply divided by shift duration and demand divided by 24 are compared as
+  concurrent direct-care hours per clock hour. Hours cannot be banked or
+  substituted between roles. Employee counts must be converted into available
+  direct-care hours before import; paid shift hours are not automatically
+  direct-care hours.
+
+Both policies enforce these constraints throughout the stay and validate their
+final plans. SNFs start empty. Dated rosters, unexpected absences, overtime,
+role substitution, and changing patient acuity are not yet modeled. Existing
+resident occupancy is not supported yet: imported supply must be residual
+nursing capacity after existing residents, and beds must be initially available.
+Modeling those residents' later bed releases requires an initial-occupancy extension.
+The staffing-aware solver uses insertion heuristics and up to 60 independent
+CCN search candidates, with the baseline as a final fallback. It does not claim
+optimality except for zero waiting. Patients with no feasible recurring window
+remain unplaced; complete-cohort waiting is undefined in that case.
+
+All staffing values are illustrative assumptions, not measured clinical data or
+staffing recommendations. Compatible measured inputs can replace the synthetic
+values; different temporal granularity or care definitions require conversion
+or a model extension. Tests: `python -m unittest discover -s tests -p test_staffing.py`.
+
+### Patient Flow Studio
 
 Start the same server and open **Dynamic placement**, or visit
 `http://127.0.0.1:8765/dynamic`. **Run comparison** creates synchronized
