@@ -211,7 +211,7 @@
         for (const shift of s.staffing.shifts) for (const role of STAFF_ROLES) shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * factor).toFixed(6));
         dirty(); renderEditor();
       })); content.append(scaleTools);
-      const [node, body] = table(["SNF", "Start hour", "End hour", "RN h/shift", "LPN h/shift", "CNA h/shift"]); node.className = "entity-table compact-table";
+      const [node, body] = table(["SNF", "Start hour", "End hour", "RN h/shift", "LPN h/shift", "CNA h/shift"]); node.className = "entity-table compact-table staffing-table";
       for (const shift of s.staffing.shifts) {
         const row = el("tr"); row.append(el("td", "", shift.snf_id));
         for (const key of ["start_hour", "end_hour"]) { const cell = el("td"); cell.append(input(shift[key], value => { shift[key] = value; dirty(); }, { type: "number", min: 0, max: 24, step: "any", label: `${shift.snf_id} ${key}` })); row.append(cell); }
