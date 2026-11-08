@@ -157,6 +157,7 @@
   }
   const STAFF_ROLES = ["RN", "LPN", "CNA"];
   const staffingFacilitySnapshots = new WeakMap();
+  let staffingExamplePreset = "full";
   const defaultCare = () => ({ RN: 1.2, LPN: 2.4, CNA: 4.8 });
   function defaultShifts(snfId, s) {
     const beds = s.beds.filter(b => b.snf_id === snfId).length;
@@ -185,12 +186,13 @@
       else { s.staffing = { schedule_type: "daily_repeating", data_source: "synthetic", shifts: s.snfs.flatMap(snf => defaultShifts(snf.id, s)) }; s.baseline_policy = "local"; s.patients.forEach(p => { p.care_hours_per_day ||= defaultCare(); }); }
       dirty(); renderEditor();
     }));
-    const presets = select("full", [["full", "Full synthetic supply"], ["shortage", "All roles at 60%"], ["night", "Night RN at 30%"], ["uneven", "First SNF at 40%"]], () => {}, "Synthetic staffing example");
+    const presets = select(staffingExamplePreset, [["full", "Full synthetic supply"], ["shortage", "All roles at 60%"], ["night", "Night RN at 30%"], ["uneven", "First SNF at 40%"]], value => { staffingExamplePreset = value; }, "Synthetic staffing example");
     tools.append(presets, button("Load staffing example", "button secondary", async () => {
+      const selectedPreset = presets.value;
       try {
         const data = await api("/api/staffing/example");
         for (const shift of data.staffing.shifts) for (const role of STAFF_ROLES) {
-          const scale = presets.value === "shortage" ? .6 : presets.value === "night" && role === "RN" && shift.start_hour === 0 ? .3 : presets.value === "uneven" && shift.snf_id === data.snfs[0].id ? .4 : 1;
+          const scale = selectedPreset === "shortage" ? .6 : selectedPreset === "night" && role === "RN" && shift.start_hour === 0 ? .3 : selectedPreset === "uneven" && shift.snf_id === data.snfs[0].id ? .4 : 1;
           shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * scale).toFixed(6));
         }
         state.draft = defaultFields(data); state.patientPage = 0; state.bedPage = 0; state.editorSearch = "";
