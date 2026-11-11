@@ -116,6 +116,20 @@ staffing recommendations. Compatible measured inputs can replace the synthetic
 values; different temporal granularity or care definitions require conversion
 or a model extension. Tests: `python -m unittest discover -s tests -p test_staffing.py`.
 
+### Urgency-weighted priority: optional objective
+
+Open **Configure scenario → Urgency & priority factors**. **Enable urgency factors** keeps the current cohort and fills synthetic inputs; **Load urgency example** loads either *Two patients, one bed* or a 60-patient regional cohort (also `GET /api/urgency/examples`). With an `urgency` block, both policies minimize
+
+    sum_i u_i * C(wait_i) + distance_weight_hours * sum_i (1 - Home_i)
+
+- `u_i = h(hospital) * (1 + beta_clinical * clinical_risk + beta_decline * decline_risk + beta_auth * authorization + beta_hard * hard_to_place)`; each factor is scaled 0–1.
+- Patient inputs: `clinical_risk` (low/medium/high → 0/0.5/1), `age` and `mobility_score` (AM-PAC 6-Clicks raw 6–24) or a direct `decline_risk`, `authorization_expiry_hour` (authorization / PT evaluation; scored at ready time over `authorization_window_hours`), `home_x_km`/`home_y_km`. Hard-to-place = 1 − compatible beds / largest compatible-bed count.
+- Hospital inputs: `occupancy` (0–1) and `ed_boarding`; `h` rises from 1 to 1 + `hospital_pressure_weight` between `pressure_start` and `pressure_full` occupancy or as ED boarding reaches `ed_boarding_full`.
+- SNF inputs: `x_km`, `y_km`. Home = 1 − min(distance, `max_distance_km`) / `max_distance_km`.
+- `C(w) = (exp(alpha w) − 1) / alpha` with `alpha = wait_growth_per_day / 24`, so long waits cost progressively more.
+
+Hard constraints are unchanged. Without an `urgency` block results are identical to before. Reported total waiting stays plain patient-hours; results add the urgency-weighted cost, high-urgency (top-quarter u_i) mean wait, high-clinical-risk mean wait and mean distance. All weights and example values are illustrative assumptions. Tests: `python -m unittest tests.test_urgency`.
+
 ### Patient Flow Studio
 
 Start the same server and open **Dynamic placement**, or visit
