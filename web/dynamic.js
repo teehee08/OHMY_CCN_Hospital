@@ -152,7 +152,104 @@
     const filtered = s.patients.map((p, index) => ({ p, index })).filter(({ p }) => `${p.id} ${p.hospital_id}`.toLowerCase().includes(state.editorSearch.toLowerCase())); state.patientPage = Math.min(state.patientPage, Math.max(0, Math.ceil(filtered.length / PAGE) - 1));
     filtered.slice(state.patientPage * PAGE, state.patientPage * PAGE + PAGE).forEach(({ p, index }) => { const card = el("article", "entity-row"), heading = el("div", "entity-heading"), actions = el("div", "row-actions"); heading.append(el("span", "patient-row-name", `${p.id} / PATIENT ${index + 1}`)); for (const [delta, glyph] of [[-1, "↑"], [1, "↓"]]) { const move = button(glyph, "icon-button", () => { const target = index + delta; [s.patients[index], s.patients[target]] = [s.patients[target], s.patients[index]]; dirty(); renderEditor(); }, `Move ${p.id} ${delta < 0 ? "earlier" : "later"} in input order`); move.disabled = index + delta < 0 || index + delta >= s.patients.length; actions.append(move); } actions.append(button("×", "icon-button", () => { s.patients.splice(index, 1); dirty(); renderEditor(); }, `Delete ${p.id}`)); heading.append(actions); card.append(heading); const fields = el("div", "entity-fields"); fields.append(field("Patient ID", input(p.id, (v, control) => rename("patients", index, v, control), { commit: true })), field("Hospital", select(p.hospital_id, s.hospitals.map(f => [f.id, f.id]), v => { p.hospital_id = v; dirty(); })), field("Gender", select(p.gender, genders, v => { p.gender = v; dirty(); })), field("Insurance plan", input(p.insurance_type, v => { p.insurance_type = v; dirty(); }, { placeholder: "Plan_A" })), field("Ready hour", input(p.ready_hour, v => { p.ready_hour = v; dirty(); }, { type: "number", min: 0, step: "any" })), field("SNF stay (hours)", input(p.length_of_stay_hours, v => { p.length_of_stay_hours = v; dirty(); }, { type: "number", min: 0.01, step: "any" })), field("Required care · comma-separated", tagInput(p.required_capabilities, v => { p.required_capabilities = v; }, `Required care for ${p.id}`, "rehabilitation, oxygen"), true)); card.append(fields, el("p", "preference-caption", "Eligible SNFs · click to include; arrows break remaining ties after waiting and capacity rules")); const choices = el("div", "preference-list"), ordered = [...p.eligible_snf_ids, ...s.snfs.map(f => f.id).filter(id => !p.eligible_snf_ids.includes(id))]; ordered.forEach(id => { const rank = p.eligible_snf_ids.indexOf(id), chip = el("div", `preference-chip${rank >= 0 ? " included" : ""}`), toggle = button(`${rank >= 0 ? `${rank + 1} · ` : "+ "}${id}`, "", () => { p.eligible_snf_ids = rank >= 0 ? p.eligible_snf_ids.filter(v => v !== id) : [...p.eligible_snf_ids, id]; dirty(); renderEditor(); }, `${rank >= 0 ? "Remove" : "Include"} ${id} for ${p.id}`); toggle.setAttribute("aria-pressed", String(rank >= 0)); chip.append(toggle); if (rank >= 0) for (const [delta, glyph] of [[-1, "←"], [1, "→"]]) { const reorder = button(glyph, "", () => { const target = rank + delta; [p.eligible_snf_ids[rank], p.eligible_snf_ids[target]] = [p.eligible_snf_ids[target], p.eligible_snf_ids[rank]]; dirty(); renderEditor(); }, `Move ${id} in ${p.id} preference`); reorder.disabled = rank + delta < 0 || rank + delta >= p.eligible_snf_ids.length; chip.append(reorder); } choices.append(chip); }); card.append(choices); if (!p.eligible_snf_ids.length) card.append(el("p", "dynamic-editor-warning", "No eligible SNF. This patient will remain waiting.")); patients.append(card); });
     const patientTools = el("div", "editor-page-tools"), addPatient = button("+ Add patient", "add-button", () => { s.patients.push({ id: nextId("P", s.patients), hospital_id: s.hospitals[0]?.id || "", gender: "female", insurance_type: "unspecified", required_capabilities: [], ready_hour: 0, length_of_stay_hours: 24, eligible_snf_ids: s.snfs.map(f => f.id) }); state.editorSearch = ""; state.patientPage = Math.floor((s.patients.length - 1) / PAGE); dirty(); renderEditor(); }); addPatient.disabled = s.patients.length >= state.limits.max_patients || !s.hospitals.length; patientTools.append(addPatient, pagination(state.patientPage, filtered.length, PAGE, page => { state.patientPage = page; renderEditor(); })); patients.append(patientTools); root.append(section("patients", "Patients, insurance & care needs", s.patients.length, patients));
+    renderStaffingEditor(root, s);
     for (const node of root.querySelectorAll("details[data-section]")) node.open = open.get(node.dataset.section) || false;
+  }
+  const STAFF_ROLES = ["RN", "LPN", "CNA"];
+  const staffingFacilitySnapshots = new WeakMap();
+  let staffingExamplePreset = "full";
+  const defaultCare = () => ({ RN: 1.2, LPN: 2.4, CNA: 4.8 });
+  function defaultShifts(snfId, s) {
+    const beds = s.beds.filter(b => b.snf_id === snfId).length;
+    return [0, 8, 16].map(start => ({ snf_id: snfId, start_hour: start, end_hour: start + 8,
+      direct_care_hours: Object.fromEntries(STAFF_ROLES.map(role => [role, beds * defaultCare()[role] / 3])) }));
+  }
+  function renderStaffingEditor(root, s) {
+    const previous = staffingFacilitySnapshots.get(s);
+    let synced = false;
+    if (s.staffing && previous) {
+      for (const old of previous) {
+        const current = s.snfs.find(snf => snf === old.entity);
+        if (current && current.id !== old.id) { s.staffing.shifts.forEach(shift => { if (shift.snf_id === old.id) shift.snf_id = current.id; }); synced = true; }
+        if (!current) { s.staffing.shifts = s.staffing.shifts.filter(shift => shift.snf_id !== old.id); synced = true; }
+      }
+      for (const snf of s.snfs) if (!previous.some(old => old.entity === snf) && !s.staffing.shifts.some(shift => shift.snf_id === snf.id)) { s.staffing.shifts.push(...defaultShifts(snf.id, s)); synced = true; }
+      s.patients.forEach(p => { if (!p.care_hours_per_day) { p.care_hours_per_day = defaultCare(); synced = true; } });
+    }
+    staffingFacilitySnapshots.set(s, s.snfs.map(entity => ({ entity, id: entity.id })));
+    if (synced) dirty();
+    const content = el("div", "editor-content");
+    content.append(el("p", "small-note", "Optional V4 constraints: RN, LPN and CNA are separate resources. Daily shifts supply direct-care hours; each patient's hours/day are spread across their entire stay. All defaults and example values are synthetic assumptions."));
+    const tools = el("div", "scenario-toolbar");
+    tools.append(button(s.staffing ? "Disable staffing constraints" : "Enable staffing constraints", "button secondary", () => {
+      if (s.staffing) delete s.staffing;
+      else { s.staffing = { schedule_type: "daily_repeating", data_source: "synthetic", shifts: s.snfs.flatMap(snf => defaultShifts(snf.id, s)) }; s.baseline_policy = "local"; s.patients.forEach(p => { p.care_hours_per_day ||= defaultCare(); }); }
+      dirty(); renderEditor();
+    }));
+    const presets = select(staffingExamplePreset, [["full", "Full synthetic supply"], ["shortage", "All roles at 60%"], ["night", "Night RN at 30%"], ["uneven", "First SNF at 40%"]], value => { staffingExamplePreset = value; }, "Synthetic staffing example");
+    tools.append(presets, button("Load staffing example", "button secondary", async () => {
+      const selectedPreset = presets.value;
+      try {
+        const data = await api("/api/staffing/example");
+        for (const shift of data.staffing.shifts) for (const role of STAFF_ROLES) {
+          const scale = selectedPreset === "shortage" ? .6 : selectedPreset === "night" && role === "RN" && shift.start_hour === 0 ? .3 : selectedPreset === "uneven" && shift.snf_id === data.snfs[0].id ? .4 : 1;
+          shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * scale).toFixed(6));
+        }
+        state.draft = defaultFields(data); state.patientPage = 0; state.bedPage = 0; state.editorSearch = "";
+        dirty(); renderEditor(); const panel = root.querySelector('[data-section="staffing"]'); if (panel) panel.open = true;
+        message("Loaded the 18-patient synthetic staffing cohort and selected supply scenario. Run comparison to update playback.");
+      } catch (error) { showError("dynamic-config-error", error.message); }
+    }));
+    content.append(tools, el("p", "small-note", "Load staffing example replaces the draft cohort. Enable staffing constraints adds synthetic supply and care demand to your current cohort. Supply is a fixed input: adding beds does not add staff. The original scenes, playback and import/export are shared by both modes."));
+    if (s.staffing) {
+      content.append(el("p", "small-note", "Supply below is total direct-care hours available per shift, not employee count. Daily shifts must cover 00–24 without gaps or overlaps. Edit patient RN/LPN/CNA hours/day in the patient cards below. Night in the bundled example is 00–08. Staffing requires hospital-local baseline."));
+      const multiplier = input(100, () => {}, { type: "number", min: 0, max: 1000, step: "any", label: "Percentage of current staffing supply" });
+      const scaleTools = el("div", "scenario-toolbar");
+      scaleTools.append(field("Percentage of current supply", multiplier), button("Apply to current supply", "button secondary", () => {
+        const factor = Number(multiplier.value) / 100;
+        if (!Number.isFinite(factor) || factor < 0 || factor > 10) { message("Supply percentage must be between 0 and 1,000."); return; }
+        for (const shift of s.staffing.shifts) for (const role of STAFF_ROLES) shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * factor).toFixed(6));
+        dirty(); renderEditor();
+      })); content.append(scaleTools);
+      const [node, body] = table(["SNF", "Start hour", "End hour", "RN h/shift", "LPN h/shift", "CNA h/shift"]); node.className = "entity-table compact-table staffing-table";
+      for (const shift of s.staffing.shifts) {
+        const row = el("tr"); row.append(el("td", "", shift.snf_id));
+        for (const key of ["start_hour", "end_hour"]) { const cell = el("td"); cell.append(input(shift[key], value => { shift[key] = value; dirty(); }, { type: "number", min: 0, max: 24, step: "any", label: `${shift.snf_id} ${key}` })); row.append(cell); }
+        for (const role of STAFF_ROLES) { const cell = el("td"); cell.append(input(shift.direct_care_hours[role], value => { shift.direct_care_hours[role] = value; dirty(); }, { type: "number", min: 0, step: "any", label: `${shift.snf_id} ${shift.start_hour} ${role} direct-care hours` })); row.append(cell); }
+        body.append(row);
+      }
+      const wrap = el("div", "result-table-wrap"); wrap.append(node); content.append(wrap);
+      const filtered = s.patients.filter(p => `${p.id} ${p.hospital_id}`.toLowerCase().includes(state.editorSearch.toLowerCase())).slice(state.patientPage * PAGE, state.patientPage * PAGE + PAGE);
+      root.querySelectorAll("article.entity-row").forEach((card, index) => {
+        const p = filtered[index]; if (!p) return;
+        p.care_hours_per_day ||= defaultCare();
+        for (const role of STAFF_ROLES) card.querySelector(".entity-fields").append(field(`${role} care hours / day`, input(p.care_hours_per_day[role], value => { p.care_hours_per_day[role] = value; dirty(); }, { type: "number", min: 0, step: "any", label: `${p.id} ${role} care hours per day` })));
+      });
+    }
+    const panel = section("staffing", "SNF staffing & nursing resources", s.staffing ? "RN / LPN / CNA" : "Optional", content);
+    root.insertBefore(panel, root.querySelector('[data-section="patients"]'));
+  }
+  function renderStaffingPlayback() {
+    let panel = $("dynamic-staffing-resources");
+    if (!panel) { panel = el("details", "results-details"); panel.id = "dynamic-staffing-resources"; panel.open = true; $("dynamic-fairness").before(panel); }
+    panel.hidden = !runScenario().staffing; if (panel.hidden) return;
+    panel.replaceChildren(el("summary", "", "SNF staffing at the shared clock"), el("p", "small-note", "Direct-care hours used / available per clock hour. Each role must remain within supply throughout every patient's stay; no substitution or banking. Supply uses the completed run, independent of draft edits."));
+    const s = runScenario(), [node, body] = table(["SNF / daily shift", "Role", "Baseline used / available", "CCN used / available"]);
+    for (const snf of s.snfs) {
+      if (state.snfFilter && state.snfFilter !== snf.id) continue;
+      const phase = state.hour % 24, shift = s.staffing.shifts.find(row => row.snf_id === snf.id && row.start_hour <= phase && phase < row.end_hour);
+      if (!shift) continue;
+      for (const role of STAFF_ROLES) {
+        const row = el("tr"), available = shift.direct_care_hours[role] / (shift.end_hour - shift.start_hour);
+        row.append(el("td", "", `${snf.id} / ${shift.start_hour}–${shift.end_hour} h`), el("td", "", role));
+        for (const key of ["baseline", "ccn"]) {
+          const active = state.lastRun[key].patients.filter(p => p.snf_id === snf.id && p.admission_hour !== null && p.admission_hour <= state.hour && state.hour < p.release_hour);
+          const used = active.reduce((sum, p) => sum + s.patients[state.patientIndex.get(p.patient_id)].care_hours_per_day[role] / 24, 0);
+          row.append(el("td", "", `${fmt(used)} / ${fmt(available)} h/h${available > 0 ? ` · ${fmt(used / available * 100)}%` : " · no supply"}`));
+        } body.append(row);
+      }
+    }
+    const wrap = el("div", "result-table-wrap"); wrap.append(node); panel.append(wrap);
   }
   function validate(s) {
     if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Import a scenario object or an exported run containing a scenario.");
@@ -168,6 +265,14 @@
     for (const f of s.snfs) checkTags(f.accepted_insurances, `${f.id} accepted insurance`);
     for (const b of s.beds) { if (!snfIds.has(b.snf_id)) throw new Error(`Bed ${b.id} must refer to an existing SNF.`); if (!bedGenders.some(v => v[0] === b.gender)) throw new Error(`Bed ${b.id} gender must be any, female or male.`); checkTags(b.capabilities, `${b.id} capabilities`); }
     for (const p of s.patients) { if (!hospitalIds.has(p.hospital_id)) throw new Error(`Patient ${p.id} must refer to an existing hospital.`); if (!genders.some(v => v[0] === p.gender)) throw new Error(`Patient ${p.id} gender must be female or male.`); if (typeof p.insurance_type !== "string" || !p.insurance_type.trim() || p.insurance_type.length > 80) throw new Error(`${p.id} requires a non-empty insurance plan of at most 80 characters.`); checkTags(p.required_capabilities, `${p.id} care requirements`); if (!Number.isFinite(p.ready_hour) || p.ready_hour < 0 || p.ready_hour > maxHours) throw new Error(`Patient ${p.id} ready hour must be from 0 through 1,000,000 hours. It does not set a simulation cutoff.`); if (!Number.isFinite(p.length_of_stay_hours) || p.length_of_stay_hours <= 0 || p.length_of_stay_hours > maxHours) throw new Error(`Patient ${p.id} SNF stay must be positive and at most 1,000,000 hours.`); if (!Array.isArray(p.eligible_snf_ids) || p.eligible_snf_ids.some(id => !snfIds.has(id)) || new Set(p.eligible_snf_ids).size !== p.eligible_snf_ids.length) throw new Error(`Patient ${p.id} must list existing, non-repeated eligible SNFs.`); }
+    if (s.staffing) {
+      if (s.baseline_policy !== "local") throw new Error("Staffing constraints require hospital-local baseline.");
+      const quantities = (value, label) => { if (!value || STAFF_ROLES.some(role => !Number.isFinite(value[role]) || value[role] < 0 || value[role] > maxHours)) throw new Error(`${label} must provide nonnegative RN, LPN and CNA hours.`); };
+      if (s.staffing.schedule_type !== "daily_repeating" || !Array.isArray(s.staffing.shifts) || s.staffing.shifts.length > 120) throw new Error("Staffing requires up to 120 daily-repeating shifts.");
+      for (const shift of s.staffing.shifts) { if (!snfIds.has(shift.snf_id) || !Number.isFinite(shift.start_hour) || !Number.isFinite(shift.end_hour) || shift.start_hour < 0 || shift.end_hour > 24 || shift.start_hour >= shift.end_hour) throw new Error("Staffing shifts require an existing SNF and 0 ≤ start < end ≤ 24."); quantities(shift.direct_care_hours, "Shift supply"); }
+      for (const snf of s.snfs) { const rows = s.staffing.shifts.filter(row => row.snf_id === snf.id).sort((a,b) => a.start_hour-b.start_hour); if (!rows.length || rows[0].start_hour !== 0 || rows.at(-1).end_hour !== 24 || rows.some((row,i) => i > 0 && rows[i-1].end_hour !== row.start_hour)) throw new Error(`${snf.id} shifts must cover 0–24 without gaps or overlaps.`); }
+      for (const p of s.patients) quantities(p.care_hours_per_day, `${p.id} care demand`);
+    }
     return s;
   }
   async function api(url, options) { const response = await fetch(url, options); let data; try { data = await response.json(); } catch (_) { throw new Error("The server did not return JSON. Check that the scenario lab server is running."); } if (!response.ok) { const detail = data.error || data.detail || data.message || `Request failed (${response.status}).`; throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail)); } return data; }
@@ -265,6 +370,7 @@
     if (!state.lastRun) return; const s = runScenario(), flights = [];
     if (animate && state.hour > previousHour && !matchMedia("(prefers-reduced-motion: reduce)").matches) for (const key of ["baseline", "ccn"]) { const refs = state.scenes[key], events = state.lastRun[key].events.filter(e => e.time_hour > previousHour + 1e-8 && e.time_hour <= state.hour + 1e-8 && ["admit", "release"].includes(e.type)); for (const event of events) { const source = event.type === "release" ? refs.bedNodes.get(event.bed_id) : refs.patientNodes.get(event.patient_id) || refs.hospitalNodes.get(event.hospital_id); flights.push({ key, event, start: center(source) }); } }
     $("dynamic-clock").textContent = clock(state.hour); $("dynamic-hour").textContent = `${fmt(state.hour - bounds().start_hour)} / ${fmt(bounds().playback_end_hour - bounds().start_hour)} h elapsed`; $("dynamic-time").value = state.hour; for (const key of ["baseline", "ccn"]) renderWorld(key); renderInspector();
+    renderStaffingPlayback();
     const shown = flights.length > 20 ? [...flights.filter(f => f.key === "baseline").slice(0, 10), ...flights.filter(f => f.key === "ccn").slice(0, 10)] : flights; for (const flight of shown) animateTransfer(flight); $("dynamic-flight-note").textContent = flights.length > shown.length ? `${flights.length} transfers in this time step; showing ${shown.length} motions. Slow playback or step events for detail.` : "Click a patient or a bed to inspect both strategies.";
     const axis = bounds(), duration = axis.playback_end_hour - axis.start_hour; for (const cursor of $("dynamic-journeys").querySelectorAll(".journey-cursor")) cursor.style.left = `${duration > 0 ? Math.max(0, Math.min(100, (state.hour - axis.start_hour) / duration * 100)) : 0}%`; $("dynamic-previous").disabled = state.hour <= axis.start_hour; $("dynamic-next").disabled = state.hour >= axis.playback_end_hour; $("dynamic-play").disabled = axis.playback_end_hour <= axis.start_hour;
   }

@@ -1,0 +1,566 @@
+{
+  "schema_version": 1,
+  "name": "Synthetic V4 staffing cohort",
+  "arrival_span_hours": 48,
+  "tie_break_seed": 42,
+  "optimizer_seed": 20261029,
+  "baseline_policy": "local",
+  "hospitals": [
+    {
+      "id": "H1"
+    },
+    {
+      "id": "H2"
+    },
+    {
+      "id": "H3"
+    }
+  ],
+  "snfs": [
+    {
+      "id": "SNF_1",
+      "accepted_insurances": [
+        "*"
+      ]
+    },
+    {
+      "id": "SNF_2",
+      "accepted_insurances": [
+        "*"
+      ]
+    }
+  ],
+  "beds": [
+    {
+      "id": "B1_1",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B1_2",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B1_3",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B1_4",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B1_5",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B1_6",
+      "snf_id": "SNF_1",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_1",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_2",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_3",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_4",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_5",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    },
+    {
+      "id": "B2_6",
+      "snf_id": "SNF_2",
+      "gender": "any",
+      "capabilities": [
+        "general",
+        "complex"
+      ]
+    }
+  ],
+  "patients": [
+    {
+      "id": "P01",
+      "hospital_id": "H1",
+      "gender": "male",
+      "ready_hour": 0,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P02",
+      "hospital_id": "H2",
+      "gender": "female",
+      "ready_hour": 0,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P03",
+      "hospital_id": "H3",
+      "gender": "male",
+      "ready_hour": 0,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P04",
+      "hospital_id": "H1",
+      "gender": "female",
+      "ready_hour": 4,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P05",
+      "hospital_id": "H2",
+      "gender": "male",
+      "ready_hour": 4,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P06",
+      "hospital_id": "H3",
+      "gender": "female",
+      "ready_hour": 4,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P07",
+      "hospital_id": "H1",
+      "gender": "male",
+      "ready_hour": 8,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P08",
+      "hospital_id": "H2",
+      "gender": "female",
+      "ready_hour": 8,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P09",
+      "hospital_id": "H3",
+      "gender": "male",
+      "ready_hour": 8,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P10",
+      "hospital_id": "H1",
+      "gender": "female",
+      "ready_hour": 12,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P11",
+      "hospital_id": "H2",
+      "gender": "male",
+      "ready_hour": 12,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P12",
+      "hospital_id": "H3",
+      "gender": "female",
+      "ready_hour": 12,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P13",
+      "hospital_id": "H1",
+      "gender": "male",
+      "ready_hour": 16,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P14",
+      "hospital_id": "H2",
+      "gender": "female",
+      "ready_hour": 16,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P15",
+      "hospital_id": "H3",
+      "gender": "male",
+      "ready_hour": 16,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P16",
+      "hospital_id": "H1",
+      "gender": "female",
+      "ready_hour": 20,
+      "length_of_stay_hours": 24,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "complex"
+      ],
+      "care_hours_per_day": {
+        "RN": 3,
+        "LPN": 3,
+        "CNA": 6
+      }
+    },
+    {
+      "id": "P17",
+      "hospital_id": "H2",
+      "gender": "male",
+      "ready_hour": 20,
+      "length_of_stay_hours": 32,
+      "eligible_snf_ids": [
+        "SNF_1"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    },
+    {
+      "id": "P18",
+      "hospital_id": "H3",
+      "gender": "female",
+      "ready_hour": 20,
+      "length_of_stay_hours": 40,
+      "eligible_snf_ids": [
+        "SNF_1",
+        "SNF_2"
+      ],
+      "insurance_type": "Plan_A",
+      "required_capabilities": [
+        "general"
+      ],
+      "care_hours_per_day": {
+        "RN": 1.2,
+        "LPN": 2.4,
+        "CNA": 4.8
+      }
+    }
+  ],
+  "staffing": {
+    "schedule_type": "daily_repeating",
+    "data_source": "synthetic; illustrative assumptions, not clinical standards",
+    "shifts": [
+      {
+        "snf_id": "SNF_1",
+        "start_hour": 0,
+        "end_hour": 8,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      },
+      {
+        "snf_id": "SNF_1",
+        "start_hour": 8,
+        "end_hour": 16,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      },
+      {
+        "snf_id": "SNF_1",
+        "start_hour": 16,
+        "end_hour": 24,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      },
+      {
+        "snf_id": "SNF_2",
+        "start_hour": 0,
+        "end_hour": 8,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      },
+      {
+        "snf_id": "SNF_2",
+        "start_hour": 8,
+        "end_hour": 16,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      },
+      {
+        "snf_id": "SNF_2",
+        "start_hour": 16,
+        "end_hour": 24,
+        "direct_care_hours": {
+          "RN": 5,
+          "LPN": 6,
+          "CNA": 12
+        }
+      }
+    ]
+  }
+}

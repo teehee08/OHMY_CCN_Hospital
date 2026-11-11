@@ -19,6 +19,7 @@ import time
 from typing import Any
 
 from dynamic_analysis import fairness_report
+import staffing as staff
 
 
 MAX_PATIENTS = 500
@@ -96,6 +97,7 @@ class Patient:
     eligible_snf_ids: tuple[str, ...]
     insurance_type: str = "unspecified"
     required_capabilities: tuple[str, ...] = ()
+    care_hours_per_day: tuple[tuple[str, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -111,6 +113,7 @@ class Scenario:
     tie_break_seed: int = 42
     baseline_policy: str = "local"
     optimizer_seed: int = CCN_SEARCH_SEED
+    staffing: dict | None = None
 
     @property
     def arrival_span_hours(self) -> float:
@@ -130,6 +133,7 @@ class Scenario:
         snfs = tuple(row["id"] for row in snf_rows)
         accepted_insurances = tuple((row["id"], _strings(row.get("accepted_insurances", ["*"]),
                                     f"SNF {row['id']} accepted_insurances")) for row in snf_rows)
+        staffing = staff.parse(data.get("staffing"), snfs)
         seed = data.get("tie_break_seed", 42)
         if type(seed) is not int or not 0 <= seed <= 2**32 - 1:
             raise ValueError("tie_break_seed must be an integer between 0 and 4294967295")
@@ -162,16 +166,18 @@ class Scenario:
             stay = _number(row.get("length_of_stay_hours"), f"Patient {row['id']} length_of_stay_hours", positive=True)
             insurance = _identifier(row.get("insurance_type", "unspecified"), f"Patient {row['id']} insurance_type")
             care = _strings(row.get("required_capabilities", []), f"Patient {row['id']} required_capabilities")
+            demand = tuple(staff.quantities(row.get("care_hours_per_day"), f"Patient {row['id']} care_hours_per_day").items()) if staffing else ()
             patients.append(Patient(row["id"], row["hospital_id"], row["gender"], ready, stay,
-                                    tuple(eligible), insurance, care))
+                                    tuple(eligible), insurance, care, demand))
         if arrival_span is absent:
             arrival_span = max((p.ready_hour for p in patients), default=0.0) or 1.0
         horizon = _number(arrival_span, "arrival_span_hours", positive=True)
         return cls(name, horizon, hospitals, snfs, tuple(beds), tuple(patients),
-                   accepted_insurances, seed, policy, optimizer_seed)
+                   accepted_insurances, seed, policy, optimizer_seed, staffing)
 
     def to_dict(self) -> dict:
         return {
+            **({"staffing": self.staffing} if self.staffing else {}),
             "schema_version": 1, "name": self.name, "arrival_span_hours": self.arrival_span_hours,
             "horizon_hours": self.arrival_span_hours,
             "tie_break_seed": self.tie_break_seed, "baseline_policy": self.baseline_policy,
@@ -181,6 +187,7 @@ class Scenario:
             "beds": [{"id": b.id, "snf_id": b.snf_id, "gender": b.gender,
                       "capabilities": list(b.capabilities)} for b in self.beds],
             "patients": [{"id": p.id, "hospital_id": p.hospital_id, "gender": p.gender,
+                          **({"care_hours_per_day": dict(p.care_hours_per_day)} if self.staffing else {}),
                           "ready_hour": p.ready_hour, "length_of_stay_hours": p.length_of_stay_hours,
                           "eligible_snf_ids": list(p.eligible_snf_ids), "insurance_type": p.insurance_type,
                           "required_capabilities": list(p.required_capabilities)} for p in self.patients],
@@ -199,11 +206,14 @@ def _options(scenario: Scenario) -> list[tuple[int, ...]]:
     return [tuple(b for snf in p.eligible_snf_ids for b, bed in enumerate(scenario.beds)
                   if bed.snf_id == snf and bed.gender in (p.gender, "any")
                   and ("*" in insurance.get(snf, ("*",)) or p.insurance_type in insurance.get(snf, ("*",)))
-                  and set(p.required_capabilities).issubset(bed.capabilities)) for p in scenario.patients]
+                  and set(p.required_capabilities).issubset(bed.capabilities)
+                  and (not scenario.staffing or math.isfinite(staff.earliest(scenario, p, b, [], {})))) for p in scenario.patients]
 
 
 def _baseline(s: Scenario, options: list[tuple[int, ...]]) -> dict[int, Booking]:
     """FCFS ready queue; choose first compatible free bed, skip blocked patients."""
+    if s.staffing:
+        raise ValueError("Staffing scenarios require baseline_policy=local")
     events = [(p.ready_hour, 1, i) for i, p in enumerate(s.patients)]
     heapq.heapify(events)
     free = set(range(len(s.beds)))
@@ -264,7 +274,7 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
               occupied: list[list[tuple[float, float]]] | None = None,
               incumbent: dict[int, Booking] | None = None, deadline: float | None = None,
               node_limit: int = SEARCH_NODE_LIMIT,
-              preserve_capacity: bool = False) -> tuple[dict[int, Booking], dict]:
+              preserve_capacity: bool = False, fixed_plan: dict[int, Booking] | None = None) -> tuple[dict[int, Booking], dict]:
     """Minimize sum of waiting on a fixed visible cohort, with honest bounds.
 
     Deterministic multi-order insertion supplies feasible plans at every size.
@@ -311,7 +321,7 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
             start, bed = math.inf, -1
             bed_capacity = (math.inf, math.inf)
             for b in options[i]:
-                candidate = _gap(p, calendars[b], now)
+                candidate = staff.earliest(s, p, b, calendars[b], {**(fixed_plan or {}), **plan}, now) if s.staffing else _gap(p, calendars[b], now)
                 capacity = capacity_costs[i, b] if use_capacity_tie else (0.0, 0.0)
                 if candidate < start or (candidate == start and capacity < bed_capacity):
                     start, bed, bed_capacity = candidate, b, capacity
@@ -338,7 +348,7 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
     if certificate():
         metadata["status"] = "optimal"
         return best, metadata
-    if len(feasible) > EXACT_PATIENT_LIMIT:
+    if s.staffing or len(feasible) > EXACT_PATIENT_LIMIT:
         return best, metadata
     deadline = time.monotonic() + SEARCH_SECONDS if deadline is None else deadline
     calendars = [list(intervals) for intervals in base]
@@ -453,7 +463,7 @@ def _local_baseline(s: Scenario, options: list[tuple[int, ...]]) -> tuple[dict[i
                 continue
             plan, info = _schedule(s, options, remaining, now=now, occupied=occupied,
                                    deadline=local_deadline, node_limit=max(0, SEARCH_NODE_LIMIT - total_nodes),
-                                   preserve_capacity=True)
+                                   preserve_capacity=True, fixed_plan=actual)
             plans[hospital] = plan
             counts[info["status"]] += 1
             total_nodes += info["nodes"]
@@ -476,7 +486,8 @@ def _local_baseline(s: Scenario, options: list[tuple[int, ...]]) -> tuple[dict[i
                     # Requests go to an SNF. Its earlier qualified request gets
                     # another compatible bed there before a later request does.
                     choices = (proposed.bed, *(b for b in options[i] if b != proposed.bed and s.beds[b].snf_id == requested_snf))
-                    destination = next((b for b in choices if b not in active), None)
+                    destination = next((b for b in choices if b not in active and
+                                        (not s.staffing or staff.violation(s, s.patients[i], b, now, actual) is None)), None)
                     success = destination is not None
                     booking = Booking(destination, now, round(now + s.patients[i].length_of_stay_hours, 9)) if success else proposed
                     request = _request_event(s, i, booking, now, request_order, accepted=success)
@@ -494,6 +505,8 @@ def _local_baseline(s: Scenario, options: list[tuple[int, ...]]) -> tuple[dict[i
             # Replan every conflicting future/current request at this SAME hour,
             # permitting rejected patients to use other compatible free beds.
             invalidate = set()
+            if s.staffing:
+                invalidate.update(plans)
             for hospital, plan in plans.items():
                 for owner, _, booking in accepted:
                     if any(other.bed == booking.bed and other.start < booking.end and booking.start < other.end
@@ -556,6 +569,7 @@ def validate_plan(s: Scenario, plan: dict[int, Booking]) -> None:
         rows.sort()
         if any(previous[1] > following[0] for previous, following in zip(rows, rows[1:])):
             raise ValueError(f"Overlapping bookings on bed {bed.id}")
+    staff.validate(s, plan)
 
 
 def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Booking]) -> tuple[dict[int, Booking], dict]:
@@ -598,7 +612,7 @@ def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Bookin
         validate_plan(s, selected)
         return selected, metadata
 
-    if len(feasible) <= EXACT_PATIENT_LIMIT or initial_cost == 0:
+    if (len(feasible) <= EXACT_PATIENT_LIMIT and not s.staffing) or initial_cost == 0:
         return retain_best(plan)
 
     # Limit candidate work using only input size, never elapsed wall time. The
@@ -607,12 +621,15 @@ def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Bookin
     occupancy_factor = max(1, math.ceil(len(feasible) / max(1, len(s.beds))))
     estimated_work = max(1, sum(len(options[i]) for i in feasible) * occupancy_factor)
     budget = min(CCN_CANDIDATE_LIMIT, max(1, CCN_INSERTION_WORK_BUDGET // estimated_work))
+    if s.staffing:
+        budget = min(budget, 60)
+        metadata.update(method="staffing_aware_multistart_insertion", initial_method="six_global_orders")
     rng = random.Random(s.optimizer_seed)
     best_cost = initial_cost
     best_order = None
     evaluated = 0
     for trial in range(budget):
-        if best_order and trial % 3:
+        if best_order and trial % 3 and len(best_order) >= 2:
             order = best_order[:]
             for _ in range(rng.randrange(1, 9)):
                 left, right = rng.sample(range(len(order)), 2)
@@ -631,7 +648,7 @@ def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Bookin
             p = s.patients[i]
             earliest, ties = math.inf, []
             for b in options[i]:
-                start = _gap(p, calendars[b])
+                start = staff.earliest(s, p, b, calendars[b], candidate) if s.staffing else _gap(p, calendars[b])
                 if start < earliest:
                     earliest, ties = start, [b]
                 elif start == earliest:
@@ -787,7 +804,8 @@ def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict |
         solver = {**solver, "objective_population": "compatible_patients_only" if impossible else "all_patients",
                   "full_cohort_objective_defined": not impossible,
                   "excluded_patient_ids": impossible}
-    return {"label": ("Hospital-local optimization" if s.baseline_policy == "local" else "Legacy ready-only FCFS") if strategy == "baseline" else "CCN · full foresight",
+    return {"staffing_audit": staff.audit(s, plan),
+            "label": ("Hospital-local optimization" if s.baseline_policy == "local" else "Legacy ready-only FCFS") if strategy == "baseline" else "CCN · full foresight",
             "strategy": strategy, "patients": patients, "events": events, "snapshots": snapshots,
             "summary": summary, "solver": solver, "observation": observation}
 
@@ -823,6 +841,11 @@ def compare(data: dict | Scenario) -> dict:
     completion_defined = before["time_to_completion_hours"] is not None and after["time_to_completion_hours"] is not None
     completion_saved = round(before["time_to_completion_hours"] - after["time_to_completion_hours"], 9) if completion_defined else None
     assumptions = list(ASSUMPTIONS)
+    if s.staffing:
+        assumptions[2] = "CCN jointly schedules all supplied patients using staffing-aware multi-order insertion and seeded multistart search (up to 60 candidates), with the hospital-local result available as a final fallback. Search is heuristic unless a zero-wait certificate proves optimality; bed-only exact search is disabled for staffing scenarios. Both seeds remain reproducible."
+        assumptions[1] += " For staffing inputs, shared actual occupancy includes the role-specific nursing demand of admitted patients. All tentative hospital plans are reconsidered after an actual admission. Staffing subproblems use insertion heuristics, with no exact optimality claim except zero waiting."
+        assumptions[7] = "Every known admission and release is logged. A patient with no compatible bed or no feasible recurring staffing window is unplaceable. Full-cohort waiting and completion are then undefined; finite playback totals are not eventual waiting estimates."
+        assumptions.append("V4 staffing: known daily-repeating shifts; direct-care hours are spread uniformly within shifts, patient care hours/day uniformly across occupied hours. Each role is constrained independently throughout the stay, including partial shifts. No role substitution, overtime, or unmet care is permitted. All beds initially empty. Real facility inputs must use residual nursing capacity after existing residents and initially available beds; initial occupancy and existing residents' bed releases require a model extension. Staffing-aware search is heuristic unless zero waiting proves optimality. Unplaceable includes patients with no feasible recurring staffing window.")
     if s.baseline_policy == "fcfs":
         assumptions[1] = "Legacy FCFS baseline sees only already-ready patients, uses ready-time/input-order priority, and takes its first compatible free bed; hospital-local foresight is disabled."
         assumptions[3] = "Legacy baseline resolves equal-ready ties by patient input order for regression compatibility; seeded inter-hospital arbitration applies to the hospital-local baseline. Qualified requests are served without artificial processing delays."
