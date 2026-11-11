@@ -22,6 +22,7 @@ import dynamic_model
 import dynamic_scenarios
 import dynamic_experiments
 import staffing_scenarios
+import urgency_scenarios
 
 
 ROOT = Path(__file__).resolve().parent
@@ -277,6 +278,8 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
                 self._error(500, "The example scenarios could not be loaded", head=head)
         elif path == "/api/staffing/example":
             self._json(200, staffing_scenarios.example(), head=head)
+        elif path == "/api/urgency/examples":
+            self._json(200, urgency_scenarios.examples(), head=head)
         elif path == "/api/dynamic/examples":
             try:
                 self._json(200, dynamic_model.examples(), head=head)
