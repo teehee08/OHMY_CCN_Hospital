@@ -8,7 +8,7 @@ are observed from the earliest readiness through their final SNF releases.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import bisect
 import heapq
 import json
@@ -20,6 +20,7 @@ from typing import Any
 
 from dynamic_analysis import fairness_report
 import staffing as staff
+import urgency as urg
 
 
 MAX_PATIENTS = 500
@@ -114,6 +115,8 @@ class Scenario:
     baseline_policy: str = "local"
     optimizer_seed: int = CCN_SEARCH_SEED
     staffing: dict | None = None
+    urgency: dict | None = None
+    urgency_derived: dict | None = field(default=None, compare=False, repr=False)
 
     @property
     def arrival_span_hours(self) -> float:
@@ -128,7 +131,8 @@ class Scenario:
         name = _identifier(data.get("name", "Custom dynamic scenario"), "name")
         absent = object()
         arrival_span = data.get("arrival_span_hours", data.get("horizon_hours", absent))
-        hospitals = tuple(row["id"] for row in _rows(data, "hospitals", MAX_FACILITIES))
+        hospital_rows = _rows(data, "hospitals", MAX_FACILITIES)
+        hospitals = tuple(row["id"] for row in hospital_rows)
         snf_rows = _rows(data, "snfs", MAX_FACILITIES)
         snfs = tuple(row["id"] for row in snf_rows)
         accepted_insurances = tuple((row["id"], _strings(row.get("accepted_insurances", ["*"]),
@@ -152,7 +156,8 @@ class Scenario:
             beds.append(Bed(row["id"], row["snf_id"], row["gender"],
                             _strings(row.get("capabilities", []), f"Bed {row['id']} capabilities")))
         patients = []
-        for row in _rows(data, "patients", MAX_PATIENTS):
+        patient_rows = _rows(data, "patients", MAX_PATIENTS)
+        for row in patient_rows:
             if row.get("hospital_id") not in hospitals:
                 raise ValueError(f"Patient {row['id']} references an unknown hospital")
             if row.get("gender") not in ("male", "female"):
@@ -172,25 +177,32 @@ class Scenario:
         if arrival_span is absent:
             arrival_span = max((p.ready_hour for p in patients), default=0.0) or 1.0
         horizon = _number(arrival_span, "arrival_span_hours", positive=True)
+        urgency = urg.parse(data, hospital_rows, snf_rows, patient_rows)
+        derived = urg.derive(urgency, patients, beds, accepted_insurances) if urgency else None
         return cls(name, horizon, hospitals, snfs, tuple(beds), tuple(patients),
-                   accepted_insurances, seed, policy, optimizer_seed, staffing)
+                   accepted_insurances, seed, policy, optimizer_seed, staffing, urgency, derived)
 
     def to_dict(self) -> dict:
+        u = self.urgency
+        extra = (lambda kind, entity_id: urg.entity_fields(u, kind, entity_id)) if u else (lambda kind, entity_id: {})
         return {
             **({"staffing": self.staffing} if self.staffing else {}),
+            **({"urgency": urg.block(u)} if u else {}),
             "schema_version": 1, "name": self.name, "arrival_span_hours": self.arrival_span_hours,
             "horizon_hours": self.arrival_span_hours,
             "tie_break_seed": self.tie_break_seed, "baseline_policy": self.baseline_policy,
             "optimizer_seed": self.optimizer_seed,
-            "hospitals": [{"id": value} for value in self.hospitals],
-            "snfs": [{"id": value, "accepted_insurances": list(dict(self.accepted_insurances).get(value, ("*",)))} for value in self.snfs],
+            "hospitals": [{"id": value, **extra("hospitals", value)} for value in self.hospitals],
+            "snfs": [{"id": value, "accepted_insurances": list(dict(self.accepted_insurances).get(value, ("*",))),
+                      **extra("snfs", value)} for value in self.snfs],
             "beds": [{"id": b.id, "snf_id": b.snf_id, "gender": b.gender,
                       "capabilities": list(b.capabilities)} for b in self.beds],
             "patients": [{"id": p.id, "hospital_id": p.hospital_id, "gender": p.gender,
                           **({"care_hours_per_day": dict(p.care_hours_per_day)} if self.staffing else {}),
                           "ready_hour": p.ready_hour, "length_of_stay_hours": p.length_of_stay_hours,
                           "eligible_snf_ids": list(p.eligible_snf_ids), "insurance_type": p.insurance_type,
-                          "required_capabilities": list(p.required_capabilities)} for p in self.patients],
+                          "required_capabilities": list(p.required_capabilities),
+                          **extra("patients", p.id)} for p in self.patients],
         }
 
 
@@ -249,8 +261,20 @@ def _gap(patient: Patient, intervals: list[tuple[float, float]], now: float = 0)
     return start
 
 
-def _objective(s: Scenario, plan: dict[int, Booking]) -> float:
+def _wait_total(s: Scenario, plan: dict[int, Booking]) -> float:
+    """Plain total waiting in patient-hours, whatever the optimization objective."""
     return round(sum(booking.start - s.patients[i].ready_hour for i, booking in plan.items()), 9)
+
+
+def _objective(s: Scenario, plan: dict[int, Booking]) -> float:
+    """Optimization objective: total waiting, or the urgency-weighted cost when enabled."""
+    if not s.urgency:
+        return _wait_total(s, plan)
+    return round(sum(urg.placement_cost(s, i, booking.bed, booking.start) for i, booking in plan.items()), 9)
+
+
+def _cost(s: Scenario, i: int, bed: int, start: float) -> float:
+    return urg.placement_cost(s, i, bed, start) if s.urgency else start - s.patients[i].ready_hour
 
 
 def _capacity_cost(patient: Patient, bed: Bed) -> tuple[float, float]:
@@ -287,7 +311,11 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
     best = dict(incumbent) if incumbent is not None else None
     best_cost = _objective(s, best) if best is not None else math.inf
     best_capacity = _capacity_objective(s, best) if best is not None else (math.inf, math.inf)
-    theoretical_lower = round(sum(max(0, now - s.patients[i].ready_hour) for i in feasible), 9)
+    if s.urgency:
+        theoretical_lower = round(sum(urg.wait_cost(s, i, max(0, now - s.patients[i].ready_hour))
+                                      + urg.min_distance_cost(s, i, options[i]) for i in feasible), 9)
+    else:
+        theoretical_lower = round(sum(max(0, now - s.patients[i].ready_hour) for i in feasible), 9)
     capacity_costs = {(i, b): _capacity_cost(s.patients[i], s.beds[b])
                       for i in feasible for b in options[i]} if preserve_capacity else {}
     minimum_capacity = {i: min(capacity_costs[i, b] for b in options[i]) for i in feasible} if preserve_capacity else {}
@@ -307,6 +335,11 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
         lambda i: (s.patients[i].ready_hour, s.patients[i].length_of_stay_hours, len(options[i]), i),
         lambda i: (-s.patients[i].length_of_stay_hours, len(options[i]), s.patients[i].ready_hour, i),
     ]
+    if s.urgency:
+        weights = s.urgency_derived["weights"]
+        # Urgent patients first, then the usual readiness order.
+        orders.append(lambda i: (-weights[i], s.patients[i].ready_hour, len(options[i]), i))
+        orders.append(lambda i: (s.patients[i].ready_hour - 24 * weights[i], len(options[i]), i))
     constructions = [(key, use_capacity_tie) for key in orders
                      for use_capacity_tie in ((False, True) if preserve_capacity else (False,))]
     evaluated_constructions = 0
@@ -320,12 +353,18 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
             earliest = max(p.ready_hour, now)
             start, bed = math.inf, -1
             bed_capacity = (math.inf, math.inf)
+            best_key = math.inf
+            # Without urgency the key is the start hour; with urgency it is the
+            # patient's weighted waiting plus distance cost for that bed.
+            floor = (round(urg.wait_cost(s, i, earliest - p.ready_hour) + urg.min_distance_cost(s, i, options[i]), 9)
+                     if s.urgency else earliest)
             for b in options[i]:
                 candidate = staff.earliest(s, p, b, calendars[b], {**(fixed_plan or {}), **plan}, now) if s.staffing else _gap(p, calendars[b], now)
                 capacity = capacity_costs[i, b] if use_capacity_tie else (0.0, 0.0)
-                if candidate < start or (candidate == start and capacity < bed_capacity):
-                    start, bed, bed_capacity = candidate, b, capacity
-                    if start == earliest and not use_capacity_tie:
+                key = round(_cost(s, i, b, candidate), 9) if s.urgency and math.isfinite(candidate) else candidate
+                if key < best_key or (key == best_key and capacity < bed_capacity):
+                    start, bed, bed_capacity, best_key = candidate, b, capacity, key
+                    if best_key == floor and not use_capacity_tie:
                         break
             end = round(start + p.length_of_stay_hours, 9)
             bisect.insort(calendars[bed], (start, end))
@@ -374,10 +413,11 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
         lower = cost_so_far
         for i in remaining:
             p = s.patients[i]
-            choices[i] = sorted((_gap(p, calendars[b], now),
+            # (placement cost, start, capacity tie, preference rank, bed)
+            choices[i] = sorted((round(_cost(s, i, b, gap), 9), gap,
                                  capacity_costs[i, b] if preserve_capacity else (0.0, 0.0), rank, b)
-                                for rank, b in enumerate(options[i]))
-            lower += choices[i][0][0] - p.ready_hour
+                                for rank, b in enumerate(options[i]) for gap in (_gap(p, calendars[b], now),))
+            lower += choices[i][0][0]
         capacity_lower = tuple(round(capacity_so_far[c] + sum(minimum_capacity[i][c] for i in remaining), 9)
                                for c in (0, 1)) if preserve_capacity else (0.0, 0.0)
         if round(lower, 9) > best_cost or (round(lower, 9) == best_cost and
@@ -388,14 +428,14 @@ def _schedule(s: Scenario, options: list[tuple[int, ...]], indices: list[int], *
             rest = tuple(j for j in remaining if j != i)
             # Interchangeable empty/same-calendar beds add no distinct branch.
             equivalent = set()
-            for start, capacity, _, bed in choices[i]:
+            for placement, start, capacity, _, bed in choices[i]:
                 signature = (tuple(calendars[bed]), tuple(j for j in rest if bed in options[j]))
                 if preserve_capacity:
                     signature += (capacity, tuple((j, capacity_costs[j, bed]) for j in rest if bed in options[j]))
                 if signature in equivalent:
                     continue
                 equivalent.add(signature)
-                new_cost = round(cost_so_far + start - p.ready_hour, 9)
+                new_cost = round(cost_so_far + placement, 9)
                 if new_cost > best_cost or (new_cost == best_cost and not preserve_capacity):
                     continue
                 end = round(start + p.length_of_stay_hours, 9)
@@ -528,7 +568,7 @@ def _local_baseline(s: Scenario, options: list[tuple[int, ...]]) -> tuple[dict[i
     return actual, {"status": status, "scope": "hospital_local_subproblems", "nodes": total_nodes,
                     "objective_hours": _objective(s, actual), "replans": replan_count,
                     "subproblem_status_counts": counts, "optimized_patient_count": len(actual),
-                    "construction_count": construction_count, "construction_limit_per_subproblem": 12,
+                    "construction_count": construction_count, "construction_limit_per_subproblem": 16 if s.urgency else 12,
                     "secondary_objective": "preserve_unused_care_then_flexible_gender_bed_hours",
                     "secondary_priority": "only_among_equal_total_wait_plans",
                     "capacity_information_scope": "bed_attributes_and_own_patients_only",
@@ -638,24 +678,34 @@ def _ccn(s: Scenario, options: list[tuple[int, ...]], baseline: dict[int, Bookin
             jitter = rng.choice((0, 4, 12, 24, 48, 96, 168))
             duration = rng.choice((-2, -1, -.25, 0, .25, 1, 2))
             constraint = rng.choice((-48, -24, 0, 24, 48))
+            # Urgency adds a fourth seeded draw only when enabled, so existing
+            # scenarios keep exactly the same random stream and results.
+            urgency_shift = rng.choice((0, 12, 24, 48, 96)) if s.urgency else 0
+            weights = s.urgency_derived["weights"] if s.urgency else None
             order = sorted(feasible, key=lambda i:
                            s.patients[i].ready_hour + duration * s.patients[i].length_of_stay_hours
-                           + constraint * math.log2(len(options[i])) + rng.uniform(-jitter, jitter))
+                           + constraint * math.log2(len(options[i])) + rng.uniform(-jitter, jitter)
+                           - (urgency_shift * weights[i] if weights else 0))
         calendars: list[list[tuple[float, float]]] = [[] for _ in s.beds]
         candidate: dict[int, Booking] = {}
         random_bed_ties = trial % 5 == 0
         for i in order:
             p = s.patients[i]
-            earliest, ties = math.inf, []
+            earliest, ties, best_key = math.inf, [], math.inf
+            floor = round(urg.wait_cost(s, i, 0) + urg.min_distance_cost(s, i, options[i]), 9) if s.urgency else p.ready_hour
+            starts = {}
             for b in options[i]:
                 start = staff.earliest(s, p, b, calendars[b], candidate) if s.staffing else _gap(p, calendars[b])
-                if start < earliest:
-                    earliest, ties = start, [b]
-                elif start == earliest:
+                starts[b] = start
+                key = round(_cost(s, i, b, start), 9) if s.urgency and math.isfinite(start) else start
+                if key < best_key:
+                    best_key, ties = key, [b]
+                elif key == best_key:
                     ties.append(b)
-                if not random_bed_ties and earliest == p.ready_hour:
+                if not random_bed_ties and best_key == floor:
                     break
             bed = rng.choice(ties) if random_bed_ties else ties[0]
+            earliest = starts[bed]
             end = round(earliest + p.length_of_stay_hours, 9)
             bisect.insort(calendars[bed], (earliest, end))
             candidate[i] = Booking(bed, earliest, end)
@@ -691,6 +741,35 @@ def _observation(s: Scenario, plans: tuple[dict[int, Booking], ...]) -> dict:
             "unresolved_patient_ids": unresolved}
 
 
+def _urgency_summary(s: Scenario, plan: dict[int, Booking], patients: list[dict], impossible: list[str]) -> dict:
+    """Urgency-oriented metrics; the high-urgency group is the top quarter of weights."""
+    weights = s.urgency_derived["weights"]
+    ordered = sorted(weights)
+    threshold = ordered[max(0, math.ceil(0.75 * len(ordered)) - 1)] if ordered else None
+    defined = not impossible
+
+    def mean(rows):
+        values = [row["wait_hours"] for row in rows]
+        return round(sum(values) / len(values), 9) if values and defined else None
+
+    high = [row for row in patients if threshold is not None and row["urgency_weight"] >= threshold and threshold > ordered[0]]
+    high_ids = {row["patient_id"] for row in high}
+    other = [row for row in patients if row["patient_id"] not in high_ids]
+    clinical = [row for i, row in enumerate(patients) if s.urgency_derived["components"][i]["clinical_risk"] >= 1]
+    distances = [row["distance_km"] for row in patients if row.get("distance_km") is not None]
+    return {
+        "urgency_weighted_cost": _objective(s, plan) if defined else None,
+        "urgency_weighted_wait_hours": round(sum(weights[i] * (b.start - s.patients[i].ready_hour) for i, b in plan.items()), 9) if defined else None,
+        "high_urgency_weight_threshold": threshold,
+        "high_urgency_patient_count": len(high),
+        "high_urgency_mean_wait_hours": mean(high),
+        "other_patients_mean_wait_hours": mean(other),
+        "high_clinical_risk_patient_count": len(clinical),
+        "high_clinical_risk_mean_wait_hours": mean(clinical),
+        "mean_distance_km": round(sum(distances) / len(distances), 6) if distances else None,
+    }
+
+
 def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict | None,
             requests: list[dict] | None = None, *, observation: dict | None = None) -> dict:
     observation = dict(observation) if observation is not None else _observation(s, (plan,))
@@ -722,6 +801,10 @@ def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict |
             "wait_through_playback_end_hours": observed_wait,
             "wait_in_window_hours": observed_wait,
             "status": "completed" if completed else "in_snf" if placed else "waiting",
+            **({"urgency_weight": s.urgency_derived["weights"][i],
+                "urgency_factors": dict(s.urgency_derived["components"][i]),
+                "placement_cost": round(urg.placement_cost(s, i, booking.bed, booking.start), 9) if booking else None,
+                "distance_km": urg.distance_km(s, i, booking.bed) if booking else None} if s.urgency else {}),
         })
 
         def add_event(at: float, kind: str, detail: str) -> None:
@@ -769,7 +852,7 @@ def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict |
     admitted = [p for p in patients if p["admission_hour"] is not None]
     occupied_hours = round(sum(b.end - b.start for b in plan.values()), 9)
     impossible = [p.id for i, p in enumerate(s.patients) if i not in plan]
-    known_wait = _objective(s, plan)
+    known_wait = _wait_total(s, plan)
     full_wait = None if impossible else known_wait
     observed_wait = round(sum(p["wait_through_playback_end_hours"] for p in patients), 9)
     admitted_mean = round(known_wait / len(admitted), 9) if admitted else None
@@ -800,6 +883,8 @@ def _result(s: Scenario, plan: dict[int, Booking], strategy: str, solver: dict |
         "request_count": sum(event["type"] == "request" for event in events),
         "rejected_request_count": sum(event["type"] == "request_rejected" for event in events),
     }
+    if s.urgency:
+        summary.update(_urgency_summary(s, plan, patients, impossible))
     if solver is not None:
         solver = {**solver, "objective_population": "compatible_patients_only" if impossible else "all_patients",
                   "full_cohort_objective_defined": not impossible,
@@ -849,11 +934,26 @@ def compare(data: dict | Scenario) -> dict:
     if s.baseline_policy == "fcfs":
         assumptions[1] = "Legacy FCFS baseline sees only already-ready patients, uses ready-time/input-order priority, and takes its first compatible free bed; hospital-local foresight is disabled."
         assumptions[3] = "Legacy baseline resolves equal-ready ties by patient input order for regression compatibility; seeded inter-hospital arbitration applies to the hospital-local baseline. Qualified requests are served without artificial processing delays."
+    urgency_comparison = None
+    objective = {"id": "full_cohort_total_wait", "direction": "minimize", "unit": "patient_hours",
+                 "time_scope": "through_eventual_admission", "includes_all_supplied_patients": True,
+                 "defined": full_defined}
+    if s.urgency:
+        objective.update(id="urgency_weighted_total_cost", unit="urgency_weighted_patient_hours",
+                         formula="sum_i u_i * (exp(alpha * wait_i) - 1) / alpha + distance_weight_hours * sum_i (1 - Home_i)",
+                         parameters=urg.block(s.urgency))
+        b_cost, c_cost = before["urgency_weighted_cost"], after["urgency_weighted_cost"]
+        saved = round(b_cost - c_cost, 9) if full_defined else None
+        urgency_comparison = {"urgency_weighted_cost_saved": saved,
+                              "urgency_weighted_cost_reduction_percent": round(100 * saved / b_cost, 9) if full_defined and b_cost > 0 else None,
+                              "high_urgency_mean_wait_saved_hours": round(before["high_urgency_mean_wait_hours"] - after["high_urgency_mean_wait_hours"], 9)
+                              if before["high_urgency_mean_wait_hours"] is not None and after["high_urgency_mean_wait_hours"] is not None else None}
+        assumptions[2] = assumptions[2].replace("It targets eventual total waiting jointly.", "It targets the urgency-weighted cost jointly.")
+        assumptions.append("Urgency (optional, synthetic weights): both policies minimize sum of u_i x C(wait_i) plus a distance term instead of plain total waiting. u_i = hospital multiplier h x (1 + beta-weighted clinical risk, functional-decline risk, authorization/PT-evaluation expiry and hard-to-place factors, each scaled 0-1). C(w) grows exponentially with time already waited. h rises with hospital occupancy or ED boarding. Distance uses straight-line km between home and SNF coordinates. Authorization urgency is evaluated at ready time; expiry does not re-trigger evaluations. Hard constraints are unchanged. The hospital-local baseline uses the same scores for its own patients; SNFs still serve requests first come, first served. Reported total waiting remains plain patient-hours.")
     return {"scenario": s.to_dict(), "baseline": baseline, "ccn": ccn, "observation": observation,
             "fairness": fairness_report(s.to_dict(), baseline, ccn),
-            "objective": {"id": "full_cohort_total_wait", "direction": "minimize", "unit": "patient_hours",
-                          "time_scope": "through_eventual_admission", "includes_all_supplied_patients": True,
-                          "defined": full_defined},
+            "objective": objective,
+            **({"urgency": {"enabled": True, "parameters": urg.block(s.urgency), "comparison": urgency_comparison}} if s.urgency else {}),
             "comparison": {"blocked_bed_hours_saved": full_saved,
                            "blocked_bed_hours_reduction_percent": round(100 * full_saved / before["blocked_bed_hours"], 9) if full_defined and before["blocked_bed_hours"] > 0 else None,
                            "placement_gain": after["placed_count"] - before["placed_count"],
