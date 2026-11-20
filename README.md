@@ -76,11 +76,27 @@ resources**. Staffing uses the original Patient Flow Studio design, scenes,
 playback and import/export, with optional role-specific nursing constraints.
 Existing inputs without staffing retain their original behavior.
 
-The demo follows 18 synthetic patients across three hospitals and two SNFs.
-Choose full supply, 60% supply, night RN shortage, or uneven supply, then **Load
-staffing example**. Alternatively, **Enable staffing constraints** retains your
-current cohort and adds synthetic staffing inputs. Edit daily shift hours in the
-staffing table and RN/LPN/CNA care hours/day in the existing patient cards. Run
+The base demo follows 18 synthetic patients across three hospitals and two SNFs.
+The staffing section presents a comparison table of four demand/capacity levels:
+
+| Pressure | Patients | Initially free SNF beds | Free beds per SNF |
+| --- | ---: | ---: | ---: |
+| Baseline | 18 | 12 | 6 |
+| Moderate | 36 | 6 | 3 |
+| High | 72 | 4 | 2 |
+| Extreme | 144 | 4 | 2 |
+
+Changing the staffing pattern (full care time, 60% care time, night RN shortage,
+or uneven supply) immediately updates the current draft's per-person care hours
+in the staffing table. Loading a row replaces the patient/bed cohort and applies
+the selected pattern. Run comparison to update the results. The stress cases repeat the same original
+patients at their ready hours while reducing free beds. All cases keep the
+same staff roster and per-patient care requirements. These are synthetic
+pressure tests, not estimates of NYC patient flows.
+Alternatively, **Enable staffing constraints** retains your current cohort and
+adds synthetic staffing inputs. Edit the number of RN/LPN/CNA staff on each
+daily shift and each person's direct-care hours/day in the staffing table;
+patient RN/LPN/CNA care hours/day remain in the patient cards. Run
 the comparison and play/scrub the original scenes; **SNF staffing at the shared
 clock** reports each role's used/available capacity. Existing JSON import/export
 retains both staffing inputs and completed-run results. `/staffing` remains an
@@ -90,15 +106,21 @@ alias for the original dynamic interface.
 
 - `staffing.schedule_type`: `daily_repeating`.
 - `staffing.shifts`: each SNF must have non-overlapping shifts covering 0–24.
-  Each row has `snf_id`, `start_hour`, `end_hour`, and `direct_care_hours`
-  containing nonnegative RN, LPN and CNA hours available in that shift.
+  Each row has `snf_id`, `start_hour`, `end_hour`, `staff_count` (integer RN/LPN/CNA
+  people on that shift), and `direct_care_hours_per_staff_per_day` (RN/LPN/CNA
+  hours per person that day). The model derives shift supply as count × hours
+  per person. Legacy `direct_care_hours` per shift inputs remain accepted, but
+  cannot reveal headcount.
 - Each patient supplies `care_hours_per_day` for RN, LPN and CNA. Demand is
   constant throughout the stay, including partial shifts.
 - Supply divided by shift duration and demand divided by 24 are compared as
   concurrent direct-care hours per clock hour. Hours cannot be banked or
-  substituted between roles. Employee counts must be converted into available
-  direct-care hours before import; paid shift hours are not automatically
-  direct-care hours.
+  substituted between roles. Staff counts are converted to available direct-care
+  hours by the model; paid shift hours are not automatically direct-care hours.
+  Shift rows represent distinct people in the bundled example; its
+  first-day roster across two SNFs is 6 RNs, 6 LPNs and 12 CNAs. Its 12 SNF
+  beds start empty; three patients are discharge-ready at hour 0, and all 18
+  become ready by hour 20.
 
 Both policies enforce these constraints throughout the stay and validate their
 final plans. SNFs start empty. Dated rosters, unexpected absences, overtime,
@@ -597,6 +619,39 @@ node --test tests/test_dynamic_metrics.js
 These checks include a case where total waiting improves while final completion
 is later, nonzero starts, arrivals after the legacy span, empty cohorts, zero
 denominators and unplaceable patients.
+
+## Brooklyn reconstructed day-by-day example
+
+The dynamic lab includes a workbook-derived Brooklyn example that repeats the
+2024 annual-average SNF referral rate for 12 reconstructed days. It uses the
+2026 corrected SNF bed counts, CMS 2026 Q2 staffing, facility Medicare LOS,
+2026-11-18 hospital occupancy, and straight-line hospital-SNF distances.
+
+This is a controlled reconstruction, not a replay of observed patients:
+
+- Exact 2024 daily SNF arrivals are unavailable; daily arrivals are distributed
+  across hospitals using annual hospital-to-SNF totals.
+- SNF bed counts are a 2026 census snapshot, not an observed bed-time series.
+- SNF LOS values are facility averages, not individual stays.
+- Staff totals are a 2026 Q2 snapshot and do not include resident workload at
+  the start of the simulation.
+- Pre-SNF LOS is available as a distribution, but exact patient readiness times
+  are unavailable.
+
+A stronger simulation would need synchronized data from the same period:
+
+- Daily hospital admissions, discharges, and discharge-to-SNF timestamps
+- Exact patient-level hospital/SNF admission and release timestamps
+- Daily occupied and available beds for every SNF
+- Daily RN/LPN/CNA scheduled and on-duty staff
+- Road or transit travel time for every hospital-SNF pair
+- Patient compatibility, insurance, and clinical care requirements
+- Resident census and bed occupancy at the start of the SNF horizon
+
+The existing annual 2024 referral data, 2026 hospital census, SNF census,
+staffing, LOS, and distance fields remain suitable inputs for testing capacity
+pressure and strategy behavior, but the missing timestamps and bed-time series
+prevent a calibrated historical claim.
 
 ## Optional NYC road-data preparation
 

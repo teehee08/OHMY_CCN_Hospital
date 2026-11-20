@@ -3,7 +3,7 @@ import unittest
 
 import dynamic_model as model
 import staffing
-from staffing_scenarios import example
+from staffing_scenarios import case, catalog, example, stress
 
 
 class StaffingTests(unittest.TestCase):
@@ -14,6 +14,8 @@ class StaffingTests(unittest.TestCase):
             p.update(ready_hour=0, length_of_stay_hours=8, eligible_snf_ids=['SNF_1'],
                      care_hours_per_day={'RN': 24, 'LPN': 0, 'CNA': 0})
         for shift in data['staffing']['shifts']:
+            shift.pop('staff_count')
+            shift.pop('direct_care_hours_per_staff_per_day')
             shift['direct_care_hours'] = {'RN': 8, 'LPN': 0, 'CNA': 0}
         return data
 
@@ -63,6 +65,43 @@ class StaffingTests(unittest.TestCase):
     def test_roundtrip(self):
         s = model.Scenario.from_dict(example())
         self.assertEqual(model.Scenario.from_dict(s.to_dict()), s)
+        self.assertEqual(sum(row['staff_count']['RN'] for row in s.staffing['shifts']), 6)
+        self.assertEqual(s.staffing['shifts'][0]['direct_care_hours']['CNA'], 12)
+
+    def test_headcount_and_daily_hours_drive_supply(self):
+        data = example()
+        first = data['staffing']['shifts'][0]
+        first['staff_count']['RN'] = 2
+        first['direct_care_hours_per_staff_per_day']['RN'] = 4
+        shift = model.Scenario.from_dict(data).staffing['shifts'][0]
+        self.assertEqual(shift['direct_care_hours']['RN'], 8)
+        for bad in (-1, 1.5):
+            data = example()
+            data['staffing']['shifts'][0]['staff_count']['RN'] = bad
+            with self.assertRaises(ValueError):
+                model.Scenario.from_dict(data)
+
+    def test_stress_preserves_roster_and_first_cohort(self):
+        base, case = example(), stress()
+        self.assertEqual((len(case['patients']), len(case['beds'])), (36, 6))
+        self.assertEqual(case['patients'][:18], base['patients'])
+        self.assertEqual(case['staffing'], base['staffing'])
+        model.Scenario.from_dict(case)
+
+    def test_pressure_catalog_and_larger_scenarios(self):
+        levels = [(row['id'], row['patient_count'], row['free_bed_count']) for row in catalog()['cases']]
+        self.assertEqual(levels, [('base', 18, 12), ('stress_36', 36, 6),
+                                  ('stress_72', 72, 4), ('stress_144', 144, 4)])
+        for case_id, patients, beds in levels:
+            scenario = case(case_id)
+            self.assertEqual((len(scenario['patients']), len(scenario['beds'])), (patients, beds))
+            self.assertEqual(scenario['staffing'], example()['staffing'])
+            model.Scenario.from_dict(scenario)
+        result = model.compare(case('stress_72'))
+        self.assertEqual(result['ccn']['summary']['placed_count'], 72)
+        self.assertTrue(result['observation']['complete'])
+        with self.assertRaisesRegex(ValueError, 'Unknown staffing scenario'):
+            case('invalid')
 
     def test_invalid_input_rejected(self):
         for mutate in (
@@ -82,7 +121,7 @@ class StaffingTests(unittest.TestCase):
             data = example()
             for row in data['staffing']['shifts']:
                 for role in staffing.ROLES:
-                    row['direct_care_hours'][role] *= factor
+                    row['direct_care_hours_per_staff_per_day'][role] *= factor
             result = model.compare(data)
             self.assertTrue(result['observation']['complete'])
             self.assertLessEqual(result['ccn']['summary']['full_plan_wait_hours'], result['baseline']['summary']['full_plan_wait_hours'])

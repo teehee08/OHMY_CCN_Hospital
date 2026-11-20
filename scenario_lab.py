@@ -46,6 +46,7 @@ STATIC_FILES = {
     "/dynamic/": ("dynamic.html", "text/html; charset=utf-8"),
     "/dynamic.js": ("dynamic.js", "text/javascript; charset=utf-8"),
     "/dynamic_metrics.js": ("dynamic_metrics.js", "text/javascript; charset=utf-8"),
+    "/staffing_patterns.js": ("staffing_patterns.js", "text/javascript; charset=utf-8"),
     "/dynamic.css": ("dynamic.css", "text/css; charset=utf-8"),
 }
 ASSUMPTIONS = {
@@ -280,6 +281,18 @@ class ScenarioLabHandler(BaseHTTPRequestHandler):
             self._json(200, staffing_scenarios.example(), head=head)
         elif path == "/api/urgency/examples":
             self._json(200, urgency_scenarios.examples(), head=head)
+        elif path == "/api/staffing/stress":
+            self._json(200, staffing_scenarios.stress(), head=head)
+        elif path == "/api/staffing/cases":
+            self._json(200, staffing_scenarios.catalog(), head=head)
+        elif path == "/api/staffing/case":
+            try:
+                query = parse_qs(self.path.partition("?")[2], keep_blank_values=True, max_num_fields=1)
+                if set(query) != {"case"} or len(query["case"]) != 1:
+                    raise ValueError("Supply exactly one staffing case")
+                self._json(200, staffing_scenarios.case(query["case"][0]), head=head)
+            except ValueError as error:
+                self._error(400, str(error), head=head)
         elif path == "/api/dynamic/examples":
             try:
                 self._json(200, dynamic_model.examples(), head=head)

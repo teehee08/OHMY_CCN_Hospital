@@ -1,8 +1,9 @@
 """Optional V4 resource constraints. No clinical ratios are implied.
 
-Daily repeating shifts provide direct-care hours per role per shift. Patient
-hours/day are spread uniformly across occupied hours; resources cannot be banked
-or substituted between roles. Intervals are half-open, including partial shifts.
+Daily repeating shifts specify staff count and per-person direct-care hours/day,
+or legacy direct-care hours per role per shift. Patient hours/day are spread
+uniformly across occupied hours; resources cannot be banked or substituted
+between roles. Intervals are half-open, including partial shifts.
 """
 import math
 
@@ -33,8 +34,20 @@ def parse(value, snfs):
         left, right = row.get("start_hour"), row.get("end_hour")
         if any(isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x) for x in (left, right)) or not 0 <= left < right <= 24:
             raise ValueError("Daily shift bounds must satisfy 0 <= start < end <= 24")
-        normalized.append({"snf_id": row["snf_id"], "start_hour": left, "end_hour": right,
-                           "direct_care_hours": quantities(row.get("direct_care_hours"), "direct_care_hours")})
+        entry = {"snf_id": row["snf_id"], "start_hour": left, "end_hour": right}
+        if "staff_count" in row or "direct_care_hours_per_staff_per_day" in row:
+            counts = quantities(row.get("staff_count"), "staff_count")
+            if any(type(count) is not int for count in counts.values()):
+                raise ValueError("staff_count values must be nonnegative integers")
+            hours = quantities(row.get("direct_care_hours_per_staff_per_day"),
+                               "direct_care_hours_per_staff_per_day")
+            if any(hours[role] > right - left for role in ROLES):
+                raise ValueError("Per-staff daily direct-care hours cannot exceed the shift duration")
+            entry.update(staff_count=counts, direct_care_hours_per_staff_per_day=hours,
+                         direct_care_hours={role: counts[role] * hours[role] for role in ROLES})
+        else:
+            entry["direct_care_hours"] = quantities(row.get("direct_care_hours"), "direct_care_hours")
+        normalized.append(entry)
     for snf in snfs:
         shifts = sorted((r for r in normalized if r["snf_id"] == snf), key=lambda r: r["start_hour"])
         if not shifts or shifts[0]["start_hour"] != 0 or shifts[-1]["end_hour"] != 24 or any(a["end_hour"] != b["start_hour"] for a, b in zip(shifts, shifts[1:])):

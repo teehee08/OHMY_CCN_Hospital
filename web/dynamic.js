@@ -3,8 +3,9 @@
   "use strict";
   const $ = id => document.getElementById(id), clone = value => JSON.parse(JSON.stringify(value));
   const Metrics = globalThis.OHMYDynamicMetrics;
+  const StaffingPatterns = globalThis.OHMYStaffingPatterns;
   const usedTieBreakSeeds = new Set();
-  const state = { draft: null, examples: [], experiments: [], experimentKeys: new Map(), runExperiment: null, limits: { max_patients: 500, max_beds: 500, max_facilities: 40 }, lastRun: null, observation: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json", selected: null, hospitalFilter: "", snfFilter: "", search: "", editorSearch: "", patientPage: 0, bedPage: 0, tablePage: 0, eventPage: 0, maps: {}, scenes: {}, patientIndex: new Map(), expandedWards: new Set() };
+  const state = { draft: null, examples: [], staffingCases: [], staffingRoster: null, experiments: [], experimentKeys: new Map(), runExperiment: null, limits: { max_patients: 1000, max_beds: 600, max_facilities: 40 }, lastRun: null, observation: null, submitted: null, runTime: null, hour: 0, playing: null, busy: false, exportText: "", exportName: "scenario.json", selected: null, hospitalFilter: "", snfFilter: "", search: "", editorSearch: "", patientPage: 0, bedPage: 0, tablePage: 0, eventPage: 0, maps: {}, scenes: {}, patientIndex: new Map(), expandedWards: new Set() };
   const storageKey = "ohmy.dynamic.draft.v2", maxHours = 1000000, maxTextLength = 80, PAGE = 10, TABLE_PAGE = 25;
   const genders = [["female", "Female"], ["male", "Male"]], bedGenders = [["any", "Any gender"], ...genders], days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const CARE_LABELS = { rehabilitation: "Rehabilitation", oxygen: "Oxygen", bariatric: "Bariatric", dialysis: "Dialysis", wound_care: "Wound care", memory_care: "Memory care" };
@@ -22,6 +23,30 @@
   function defaultFields(s) { const copy = clone(s); if (copy.arrival_span_hours === undefined) { const ready = (copy.patients || []).map(p => p.ready_hour).filter(v => typeof v === "number" && Number.isFinite(v)); copy.arrival_span_hours = copy.horizon_hours !== undefined ? copy.horizon_hours : (ready.length ? Math.max(...ready) : 0) || 1; } copy.horizon_hours = copy.arrival_span_hours; if (copy.schema_version === undefined) copy.schema_version = 1; if (copy.name === undefined) copy.name = "Custom dynamic scenario"; if (copy.tie_break_seed === undefined) copy.tie_break_seed = 42; if (copy.optimizer_seed === undefined) copy.optimizer_seed = 20261029; if (copy.baseline_policy === undefined) copy.baseline_policy = "local"; (copy.snfs || []).forEach(f => { if (f.accepted_insurances === undefined) f.accepted_insurances = ["*"]; }); (copy.beds || []).forEach(b => { if (b.capabilities === undefined) b.capabilities = []; }); (copy.patients || []).forEach(p => { if (p.insurance_type === undefined) p.insurance_type = "unspecified"; if (p.required_capabilities === undefined) p.required_capabilities = []; }); return copy; }
   function summary(s) { return `${s.hospitals.length} hospitals · ${s.patients.length} patients · ${s.snfs.length} SNFs · ${s.beds.length} beds`; }
   function arrivalSpan(s) { return s.arrival_span_hours ?? s.horizon_hours; }
+  function renderStartingScenario(s) {
+    const root = $("dynamic-starting-scenario"); root.replaceChildren(el("h3", "", "Starting scenario"));
+    const atStart = s.patients.filter(p => p.ready_hour === 0).length;
+    const lastReady = Math.max(0, ...s.patients.map(p => p.ready_hour));
+    root.append(el("p", "", `${s.patients.length} patients in this finite cohort; ${atStart} discharge-ready at hour 0. ${s.beds.length} SNF beds are free at hour 0. The last supplied patient becomes ready at hour ${fmt(lastReady)}. SNF admission follows readiness plus any placement wait.`));
+    const [snfTable, snfBody] = table(s.staffing ? ["SNF", "Free beds", "Day-1 RN", "Day-1 LPN", "Day-1 CNA"] : ["SNF", "Free beds"]);
+    snfTable.className = "result-table starting-snf-table";
+    for (const snf of s.snfs) {
+      const row = el("tr"); row.append(el("td", "", snf.id), el("td", "", s.beds.filter(b => b.snf_id === snf.id).length));
+      if (s.staffing) {
+        const shifts = s.staffing.shifts.filter(shift => shift.snf_id === snf.id);
+        for (const role of STAFF_ROLES) row.append(el("td", "", shifts.length && shifts.every(shift => shift.staff_count) ? shifts.reduce((sum, shift) => sum + shift.staff_count[role], 0) : "—"));
+      }
+      snfBody.append(row);
+    }
+    const snfWrap = el("div", "result-table-wrap"); snfWrap.append(snfTable); root.append(snfWrap);
+    if (s.staffing) {
+      const firstDay = STAFF_ROLES.map(role => {
+        const rows = s.staffing.shifts;
+        return rows.every(row => row.staff_count) ? `${role} ${rows.reduce((sum, row) => sum + row.staff_count[role], 0)}` : `${role} headcount unavailable (legacy hours-only input)`;
+      });
+      root.append(el("p", "small-note", `First-day scheduled shift slots across all SNFs: ${firstDay.join(" · ")}. Totals assume different people on different shifts; the roster repeats daily. Staff supply is direct-care hours, not paid hours.`));
+    }
+  }
   function bounds() { return state.observation || Metrics.observationBounds(state.lastRun); }
   function scenarioKey(scenario) {
     return Metrics.inputIdentity(defaultFields(scenario));
@@ -236,14 +261,23 @@
   }
   const STAFF_ROLES = ["RN", "LPN", "CNA"];
   const staffingFacilitySnapshots = new WeakMap();
-  let staffingExamplePreset = "full";
+  let staffingPatternPreset = "full";
   const defaultCare = () => ({ RN: 1.2, LPN: 2.4, CNA: 4.8 });
   function defaultShifts(snfId, s) {
     const beds = s.beds.filter(b => b.snf_id === snfId).length;
     return [0, 8, 16].map(start => ({ snf_id: snfId, start_hour: start, end_hour: start + 8,
-      direct_care_hours: Object.fromEntries(STAFF_ROLES.map(role => [role, beds * defaultCare()[role] / 3])) }));
+      staff_count: { RN: Math.max(1, Math.ceil(beds / 6)), LPN: Math.max(1, Math.ceil(beds / 6)), CNA: Math.max(1, Math.ceil(beds / 3)) },
+      direct_care_hours_per_staff_per_day: { RN: 5, LPN: 6, CNA: 6 } }));
+  }
+  function syncShiftHours(shift) { if (shift.staff_count && shift.direct_care_hours_per_staff_per_day) shift.direct_care_hours = Object.fromEntries(STAFF_ROLES.map(role => [role, shift.staff_count[role] * shift.direct_care_hours_per_staff_per_day[role]])); }
+  function enableStaffing(s) {
+    if (!s.snfs.length) throw new Error("Add an SNF before enabling staffing.");
+    s.staffing = { schedule_type: "daily_repeating", data_source: "synthetic", shifts: s.snfs.flatMap(snf => defaultShifts(snf.id, s)) };
+    s.baseline_policy = "local";
+    s.patients.forEach(p => { p.care_hours_per_day ||= defaultCare(); });
   }
   function renderStaffingEditor(root, s) {
+    if (s.staffing) staffingPatternPreset = StaffingPatterns.detect(s);
     const previous = staffingFacilitySnapshots.get(s);
     let synced = false;
     if (s.staffing && previous) {
@@ -262,39 +296,67 @@
     const tools = el("div", "scenario-toolbar");
     tools.append(button(s.staffing ? "Disable staffing constraints" : "Enable staffing constraints", "button secondary", () => {
       if (s.staffing) delete s.staffing;
-      else { s.staffing = { schedule_type: "daily_repeating", data_source: "synthetic", shifts: s.snfs.flatMap(snf => defaultShifts(snf.id, s)) }; s.baseline_policy = "local"; s.patients.forEach(p => { p.care_hours_per_day ||= defaultCare(); }); }
+      else { try { enableStaffing(s); StaffingPatterns.apply(s, staffingPatternPreset === "custom" ? "full" : staffingPatternPreset); } catch (error) { message(error.message); return; } }
       dirty(); renderEditor();
     }));
-    const presets = select(staffingExamplePreset, [["full", "Full synthetic supply"], ["shortage", "All roles at 60%"], ["night", "Night RN at 30%"], ["uneven", "First SNF at 40%"]], value => { staffingExamplePreset = value; }, "Synthetic staffing example");
-    tools.append(presets, button("Load staffing example", "button secondary", async () => {
-      const selectedPreset = presets.value;
+    content.append(tools);
+    const chooser = el("div", "staffing-case-chooser");
+    chooser.append(el("h4", "", "Compare staffing scenarios"));
+    chooser.append(el("p", "small-note", "The same 18-patient template is repeated at its original ready hours. Each scenario row sets patients and free beds; the staffing pattern sets available care hours per person."));
+    const pattern = select(staffingPatternPreset, [["full", "Base hours: RN 5 / LPN 6 / CNA 6"], ["shortage", "All roles at 60%"], ["night", "Night RN at 30%"], ["uneven", "First SNF at 40%"], ["custom", "Custom edited hours"]], value => {
+      if (value === "custom") return;
       try {
-        const data = await api("/api/staffing/example");
-        for (const shift of data.staffing.shifts) for (const role of STAFF_ROLES) {
-          const scale = selectedPreset === "shortage" ? .6 : selectedPreset === "night" && role === "RN" && shift.start_hour === 0 ? .3 : selectedPreset === "uneven" && shift.snf_id === data.snfs[0].id ? .4 : 1;
-          shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * scale).toFixed(6));
-        }
+        if (!s.staffing) enableStaffing(s);
+        StaffingPatterns.apply(s, value);
+        staffingPatternPreset = value;
+        dirty(); renderEditor();
+        message("Applied the staffing pattern to the current draft. The per-person hours table is updated; run comparison to update results.");
+      } catch (error) { pattern.value = staffingPatternPreset; message(error.message); }
+    }, "Apply staffing pattern to the current draft");
+    pattern.id = "dynamic-staffing-pattern";
+    pattern.querySelector('option[value="custom"]').disabled = true;
+    const [caseTable, caseBody] = table(["Scenario", "Patients", "Free beds", "Patients / bed", "Load scenario"]); caseTable.className = "result-table staffing-case-table";
+    for (const item of state.staffingCases) {
+      const row = el("tr");
+      row.append(el("td", "", item.label), el("td", "", item.patient_count), el("td", "", `${item.free_bed_count} (${item.free_beds_per_snf}/SNF)`), el("td", "", item.patients_per_free_bed));
+      const action = el("td"); action.append(button("Load", "button secondary", async () => {
+      const selectedPreset = pattern.value;
+      if (selectedPreset === "custom") { message("Choose a staffing preset before loading a scenario row."); return; }
+      try {
+        const data = await api(`/api/staffing/case?case=${encodeURIComponent(item.id)}`);
+        StaffingPatterns.apply(data, selectedPreset);
         state.draft = defaultFields(data); state.patientPage = 0; state.bedPage = 0; state.editorSearch = "";
         dirty(); renderEditor(); const panel = root.querySelector('[data-section="staffing"]'); if (panel) panel.open = true;
-        message("Loaded the 18-patient synthetic staffing cohort and selected supply scenario. Run comparison to update playback.");
+        message(`Loaded ${data.patients.length} synthetic patients and ${data.beds.length} initially free beds with ${pattern.options[pattern.selectedIndex].text.toLowerCase()} staffing. Run comparison to update playback.`);
       } catch (error) { showError("dynamic-config-error", error.message); }
-    }));
-    content.append(tools, el("p", "small-note", "Load staffing example replaces the draft cohort. Enable staffing constraints adds synthetic supply and care demand to your current cohort. Supply is a fixed input: adding beds does not add staff. The original scenes, playback and import/export are shared by both modes."));
+      }, `Load ${item.label}: ${item.patient_count} patients and ${item.free_bed_count} free beds`)); row.append(action); caseBody.append(row);
+    }
+    const caseWrap = el("div", "result-table-wrap"); caseWrap.append(caseTable); chooser.append(caseWrap);
+    if (state.staffingRoster) chooser.append(el("p", "small-note", `Shared first-day shift slots: ${STAFF_ROLES.map(role => `${role} ${state.staffingRoster[role]}`).join(" · ")}. Loading a row replaces the draft cohort.`));
+    chooser.append(field("Care hours per staff member · applies now", pattern));
+    chooser.append(el("p", "small-note", "Choosing a pattern immediately updates the current draft's care-hours table below. Run comparison to update the playback results."));
+    content.append(chooser, el("p", "small-note", "Enable staffing constraints adds synthetic supply and care demand to the current cohort. Adding beds does not add staff. JSON import/export works for every case."));
     if (s.staffing) {
-      content.append(el("p", "small-note", "Supply below is total direct-care hours available per shift, not employee count. Daily shifts must cover 00–24 without gaps or overlaps. Edit patient RN/LPN/CNA hours/day in the patient cards below. Night in the bundled example is 00–08. Staffing requires hospital-local baseline."));
-      const multiplier = input(100, () => {}, { type: "number", min: 0, max: 1000, step: "any", label: "Percentage of current staffing supply" });
+      content.append(el("p", "small-note", "Each row shows scheduled people on one daily shift and each person's available direct-care hours that day. Supply equals people × hours/person/day. Shifts cover 00–24 without gaps or overlaps and repeat each day. Patient RN/LPN/CNA hours/day are edited below. Staffing requires hospital-local baseline."));
+      const multiplier = input(100, () => {}, { type: "number", min: 0, max: 100, step: "any", label: "Percentage of current staffing supply" });
       const scaleTools = el("div", "scenario-toolbar");
       scaleTools.append(field("Percentage of current supply", multiplier), button("Apply to current supply", "button secondary", () => {
         const factor = Number(multiplier.value) / 100;
-        if (!Number.isFinite(factor) || factor < 0 || factor > 10) { message("Supply percentage must be between 0 and 1,000."); return; }
-        for (const shift of s.staffing.shifts) for (const role of STAFF_ROLES) shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * factor).toFixed(6));
+        if (!Number.isFinite(factor) || factor < 0 || factor > 1) { message("Supply percentage must be between 0 and 100. Increase staff by editing the people counts."); return; }
+        for (const shift of s.staffing.shifts) { for (const role of STAFF_ROLES) { if (shift.direct_care_hours_per_staff_per_day) shift.direct_care_hours_per_staff_per_day[role] = Number((shift.direct_care_hours_per_staff_per_day[role] * factor).toFixed(6)); else shift.direct_care_hours[role] = Number((shift.direct_care_hours[role] * factor).toFixed(6)); } syncShiftHours(shift); }
+        staffingPatternPreset = "custom";
         dirty(); renderEditor();
       })); content.append(scaleTools);
-      const [node, body] = table(["SNF", "Start hour", "End hour", "RN h/shift", "LPN h/shift", "CNA h/shift"]); node.className = "entity-table compact-table staffing-table";
+      const headcountMode = s.staffing.shifts.every(shift => shift.staff_count && shift.direct_care_hours_per_staff_per_day);
+      if (!headcountMode) content.append(el("p", "small-note", "Imported legacy staffing has only total care hours per shift; headcount cannot be recovered from those totals."));
+      const [node, body] = table(headcountMode ? ["SNF", "Start hour", "End hour", ...STAFF_ROLES.flatMap(role => [`${role} people`, `${role} h/person/day`])] : ["SNF", "Start hour", "End hour", "RN h/shift", "LPN h/shift", "CNA h/shift"]); node.className = "entity-table compact-table staffing-table";
       for (const shift of s.staffing.shifts) {
         const row = el("tr"); row.append(el("td", "", shift.snf_id));
         for (const key of ["start_hour", "end_hour"]) { const cell = el("td"); cell.append(input(shift[key], value => { shift[key] = value; dirty(); }, { type: "number", min: 0, max: 24, step: "any", label: `${shift.snf_id} ${key}` })); row.append(cell); }
-        for (const role of STAFF_ROLES) { const cell = el("td"); cell.append(input(shift.direct_care_hours[role], value => { shift.direct_care_hours[role] = value; dirty(); }, { type: "number", min: 0, step: "any", label: `${shift.snf_id} ${shift.start_hour} ${role} direct-care hours` })); row.append(cell); }
+        for (const role of STAFF_ROLES) {
+          if (headcountMode) for (const [key, suffix, step] of [["staff_count", "people", 1], ["direct_care_hours_per_staff_per_day", "direct-care hours per person per day", "any"]]) { const cell = el("td"); cell.append(input(shift[key][role], value => { shift[key][role] = value; syncShiftHours(shift); if (key === "direct_care_hours_per_staff_per_day") { staffingPatternPreset = "custom"; pattern.value = "custom"; } dirty(); }, { type: "number", min: 0, max: key === "staff_count" ? 1000000 : shift.end_hour - shift.start_hour, step, label: `${shift.snf_id} ${shift.start_hour} ${role} ${suffix}` })); row.append(cell); }
+          else { const cell = el("td"); cell.append(input(shift.direct_care_hours[role], value => { shift.direct_care_hours[role] = value; dirty(); }, { type: "number", min: 0, step: "any", label: `${shift.snf_id} ${shift.start_hour} ${role} direct-care hours` })); row.append(cell); }
+        }
         body.append(row);
       }
       const wrap = el("div", "result-table-wrap"); wrap.append(node); content.append(wrap);
@@ -313,22 +375,27 @@
     if (!panel) { panel = el("details", "results-details"); panel.id = "dynamic-staffing-resources"; panel.open = true; $("dynamic-fairness").before(panel); }
     panel.hidden = !runScenario().staffing; if (panel.hidden) return;
     panel.replaceChildren(el("summary", "", "SNF staffing at the shared clock"), el("p", "small-note", "Direct-care hours used / available per clock hour. Each role must remain within supply throughout every patient's stay; no substitution or banking. Supply uses the completed run, independent of draft edits."));
-    const s = runScenario(), [node, body] = table(["SNF / daily shift", "Role", "Baseline used / available", "CCN used / available"]);
+    const s = runScenario(), grid = el("div", "staffing-resource-grid");
     for (const snf of s.snfs) {
       if (state.snfFilter && state.snfFilter !== snf.id) continue;
       const phase = state.hour % 24, shift = s.staffing.shifts.find(row => row.snf_id === snf.id && row.start_hour <= phase && phase < row.end_hour);
       if (!shift) continue;
+      const card = el("section", "staffing-resource-card");
+      card.append(el("h4", "", snf.id), el("p", "small-note", `Daily shift ${shift.start_hour}–${shift.end_hour} h`));
+      const [node, body] = table(["Role", "Baseline used / available", "CCN used / available"]);
+      node.className = "result-table staffing-resource-table";
+      const active = Object.fromEntries(["baseline", "ccn"].map(key => [key, state.lastRun[key].patients.filter(p => p.snf_id === snf.id && p.admission_hour !== null && p.admission_hour <= state.hour && state.hour < p.release_hour)]));
       for (const role of STAFF_ROLES) {
         const row = el("tr"), available = shift.direct_care_hours[role] / (shift.end_hour - shift.start_hour);
-        row.append(el("td", "", `${snf.id} / ${shift.start_hour}–${shift.end_hour} h`), el("td", "", role));
+        row.append(el("td", "", role));
         for (const key of ["baseline", "ccn"]) {
-          const active = state.lastRun[key].patients.filter(p => p.snf_id === snf.id && p.admission_hour !== null && p.admission_hour <= state.hour && state.hour < p.release_hour);
-          const used = active.reduce((sum, p) => sum + s.patients[state.patientIndex.get(p.patient_id)].care_hours_per_day[role] / 24, 0);
+          const used = active[key].reduce((sum, p) => sum + s.patients[state.patientIndex.get(p.patient_id)].care_hours_per_day[role] / 24, 0);
           row.append(el("td", "", `${fmt(used)} / ${fmt(available)} h/h${available > 0 ? ` · ${fmt(used / available * 100)}%` : " · no supply"}`));
         } body.append(row);
       }
+      card.append(node); grid.append(card);
     }
-    const wrap = el("div", "result-table-wrap"); wrap.append(node); panel.append(wrap);
+    panel.append(grid);
   }
   function validate(s) {
     if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Import a scenario object or an exported run containing a scenario.");
@@ -401,7 +468,7 @@
   function renderResults() {
     const data = state.lastRun, s = data.scenario || state.submitted, b = data.baseline.summary, c = data.ccn.summary;
     state.patientIndex = new Map(s.patients.map((p, i) => [p.id, i])); state.maps = Object.fromEntries(["baseline", "ccn"].map(key => [key, new Map(data[key].patients.map(p => [p.patient_id, p]))]));
-    $("dynamic-empty").hidden = true; $("dynamic-output").hidden = false; $("dynamic-run-name").textContent = `PLAYING: ${s.name}`; $("dynamic-run-subtitle").textContent = `${summary(s)} · Request seed: ${s.tie_break_seed}${s.baseline_policy === "fcfs" ? " (unused by FCFS)" : " (new each run)"} · Optimizer seed: ${s.optimizer_seed ?? 20261029}`;
+    $("dynamic-empty").hidden = true; $("dynamic-output").hidden = false; $("dynamic-run-name").textContent = `PLAYING: ${s.name}`; $("dynamic-run-subtitle").textContent = `${summary(s)} · Request seed: ${s.tie_break_seed}${s.baseline_policy === "fcfs" ? " (unused by FCFS)" : " (new each run)"} · Optimizer seed: ${s.optimizer_seed ?? 20261029}`; renderStartingScenario(s);
     const measured = Metrics.comparison(data), full = measured.full, observation = Metrics.observationBounds(data), completed = Metrics.completion(data), fair = Metrics.fairness(data);
     state.observation = observation;
     state.hour = observation.start_hour;
@@ -555,6 +622,6 @@
   $("dynamic-log-strategy").addEventListener("change", () => { state.eventPage = 0; renderEvents(); });
   for (const [id, render] of [["dynamic-placement-details", renderPlacements], ["dynamic-journey-details", renderJourneys], ["dynamic-event-details", renderEvents]]) $(id).addEventListener("toggle", () => { if ($(id).open) render(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopPlayback(); });
-  async function init() { try { const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) }; if (!state.examples.length) throw new Error("No dynamic scenarios are available."); state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); }); state.draft = defaultFields(state.examples[0]); try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = defaultFields(validate(defaultFields(JSON.parse(saved)))); message("Restored your latest v2 draft."); } } catch (_) { message("Loaded the larger default scenario."); } $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`; for (const [name, limit] of [["patient_count", state.limits.max_patients], ["bed_count", state.limits.max_beds], ["hospital_count", state.limits.max_facilities], ["snf_count", state.limits.max_facilities]]) $("dynamic-generator").elements[name].max = limit; dirty(); renderEditor(); await loadExperiments(); await run({ preventDefault() {} }); } catch (error) { showError("dynamic-startup-error", error.message); setBusy(true); } }
+  async function init() { try { const data = await api("/api/dynamic/examples"); state.examples = data.scenarios || []; state.limits = { ...state.limits, ...(data.limits || {}) }; if (!state.examples.length) throw new Error("No dynamic scenarios are available."); state.examples.forEach((s, index) => { const option = el("option", "", s.name); option.value = index; $("dynamic-example").append(option); }); const staffingCatalog = await api("/api/staffing/cases"); state.staffingCases = staffingCatalog.cases || []; state.staffingRoster = staffingCatalog.shared_roster || null; state.draft = defaultFields(state.examples[0]); try { const saved = localStorage.getItem(storageKey); if (saved) { state.draft = defaultFields(validate(defaultFields(JSON.parse(saved)))); message("Restored your latest v2 draft."); } } catch (_) { message("Loaded the larger default scenario."); } $("dynamic-limits").textContent = `Up to ${state.limits.max_patients} patients, ${state.limits.max_beds} beds and ${state.limits.max_facilities} of each facility type.`; for (const [name, limit] of [["patient_count", state.limits.max_patients], ["bed_count", state.limits.max_beds], ["hospital_count", state.limits.max_facilities], ["snf_count", state.limits.max_facilities]]) $("dynamic-generator").elements[name].max = limit; dirty(); renderEditor(); await loadExperiments(); await run({ preventDefault() {} }); } catch (error) { showError("dynamic-startup-error", error.message); setBusy(true); } }
   init();
 })();

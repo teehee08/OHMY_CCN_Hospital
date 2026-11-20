@@ -23,8 +23,8 @@ import staffing as staff
 import urgency as urg
 
 
-MAX_PATIENTS = 500
-MAX_BEDS = 500
+MAX_PATIENTS = 1000
+MAX_BEDS = 600
 MAX_FACILITIES = 40
 MAX_HOURS = 1_000_000
 SEARCH_NODE_LIMIT = 30_000
@@ -215,11 +215,31 @@ class Booking:
 
 def _options(scenario: Scenario) -> list[tuple[int, ...]]:
     insurance = dict(scenario.accepted_insurances)
-    return [tuple(b for snf in p.eligible_snf_ids for b, bed in enumerate(scenario.beds)
-                  if bed.snf_id == snf and bed.gender in (p.gender, "any")
-                  and ("*" in insurance.get(snf, ("*",)) or p.insurance_type in insurance.get(snf, ("*",)))
-                  and set(p.required_capabilities).issubset(bed.capabilities)
-                  and (not scenario.staffing or math.isfinite(staff.earliest(scenario, p, b, [], {})))) for p in scenario.patients]
+    result = []
+    staffing_snf_feasible: dict[tuple[int, str], bool] = {}
+    for p_index, p in enumerate(scenario.patients):
+        options = []
+        for snf in p.eligible_snf_ids:
+            bed_indexes = [b for b, bed in enumerate(scenario.beds) if bed.snf_id == snf]
+            if not bed_indexes:
+                continue
+            feasible = True
+            if scenario.staffing:
+                key = (p_index, snf)
+                feasible = staffing_snf_feasible.get(key)
+                if feasible is None:
+                    feasible = math.isfinite(staff.earliest(scenario, p, bed_indexes[0], [], {}))
+                    staffing_snf_feasible[key] = feasible
+            if not feasible:
+                continue
+            for b in bed_indexes:
+                bed = scenario.beds[b]
+                if bed.gender in (p.gender, "any") \
+                        and ("*" in insurance.get(snf, ("*",)) or p.insurance_type in insurance.get(snf, ("*",))) \
+                        and set(p.required_capabilities).issubset(bed.capabilities):
+                    options.append(b)
+        result.append(tuple(options))
+    return result
 
 
 def _baseline(s: Scenario, options: list[tuple[int, ...]]) -> dict[int, Booking]:

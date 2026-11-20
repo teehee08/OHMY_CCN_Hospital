@@ -68,11 +68,41 @@ class DynamicLabHttpTests(unittest.TestCase):
         self.assertEqual(len(document["scenarios"][1]["patients"]), 240)
         for data in document["scenarios"]:
             self.assertEqual(data, dynamic_model.Scenario.from_dict(data).to_dict())
-        self.assertEqual(document["limits"], {"max_patients": 500, "max_beds": 500, "max_facilities": 40})
+        self.assertEqual(document["limits"], {"max_patients": 1000, "max_beds": 600, "max_facilities": 40})
         original = json.loads(json.dumps(document["scenarios"]))
         document["scenarios"][0]["patients"][0]["id"] = "consumer_edit"
         _, second = self.request_json("GET", "/api/dynamic/examples")
         self.assertEqual(second["scenarios"], original)
+
+    def test_real_brooklyn_data_is_available_as_an_editable_dynamic_example(self):
+        import dynamic_scenarios
+
+        status, document = self.request_json("GET", "/api/dynamic/examples")
+        self.assertEqual(status, 200)
+        nyc = next(row for row in document["scenarios"] if row["name"].startswith("Brooklyn 12-day reconstruction"))
+        native = dynamic_scenarios._nyc_scenario()
+        self.assertEqual(nyc, dynamic_model.Scenario.from_dict(native).to_dict())
+        self.assertEqual(len(nyc["hospitals"]), 13)
+        self.assertEqual(len(nyc["snfs"]), 40)
+        self.assertEqual(len(nyc["beds"]), 549)
+        self.assertEqual(len(nyc["patients"]), 660)
+        self.assertEqual(nyc["arrival_span_hours"], 288)
+        self.assertTrue(nyc["staffing"]["shifts"])
+
+    def test_staffing_pressure_catalog_and_case_routes(self):
+        import staffing_scenarios
+
+        status, listing = self.request_json("GET", "/api/staffing/cases")
+        self.assertEqual(status, 200)
+        self.assertEqual(listing, staffing_scenarios.catalog())
+        for item in listing["cases"]:
+            status, scenario = self.request_json("GET", f"/api/staffing/case?case={item['id']}")
+            self.assertEqual(status, 200)
+            self.assertEqual((len(scenario["patients"]), len(scenario["beds"])),
+                             (item["patient_count"], item["free_bed_count"]))
+        for query in ("", "?case=invalid", "?case=base&case=stress_36", "?size=72"):
+            status, _ = self.request_json("GET", "/api/staffing/case" + query)
+            self.assertEqual(status, 400)
 
     def test_dynamic_run_returns_native_finite_results_and_expected_default_effect(self):
         data = default_scenario()
@@ -163,7 +193,7 @@ class DynamicLabHttpTests(unittest.TestCase):
         self.assertEqual(report["ccn"]["summary"]["structurally_unplaceable_patient_ids"], [])
 
     def test_generator_rejects_invalid_requests_and_applies_origin_protection(self):
-        for params in (None, [], {"patient_count": 501}, {"seed": True},
+        for params in (None, [], {"patient_count": 1001}, {"seed": True},
                        {"unknown_option": 1}, {"hospital_count": 0, "patient_count": 1},
                        {"snf_count": 0, "bed_count": 1}):
             with self.subTest(params=params):
@@ -195,6 +225,7 @@ class DynamicLabHttpTests(unittest.TestCase):
             ("/dynamic", "text/html"),
             ("/dynamic.js", "text/javascript"),
             ("/dynamic_metrics.js", "text/javascript"),
+            ("/staffing_patterns.js", "text/javascript"),
             ("/dynamic.css", "text/css"),
         ):
             with self.subTest(path=path):

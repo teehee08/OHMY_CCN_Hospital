@@ -505,60 +505,90 @@
         "snf_id": "SNF_1",
         "start_hour": 0,
         "end_hour": 8,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       },
       {
         "snf_id": "SNF_1",
         "start_hour": 8,
         "end_hour": 16,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       },
       {
         "snf_id": "SNF_1",
         "start_hour": 16,
         "end_hour": 24,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       },
       {
         "snf_id": "SNF_2",
         "start_hour": 0,
         "end_hour": 8,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       },
       {
         "snf_id": "SNF_2",
         "start_hour": 8,
         "end_hour": 16,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       },
       {
         "snf_id": "SNF_2",
         "start_hour": 16,
         "end_hour": 24,
-        "direct_care_hours": {
+        "staff_count": {
+          "RN": 1,
+          "LPN": 1,
+          "CNA": 2
+        },
+        "direct_care_hours_per_staff_per_day": {
           "RN": 5,
           "LPN": 6,
-          "CNA": 12
+          "CNA": 6
         }
       }
     ]
