@@ -1,0 +1,6390 @@
+{
+ "schema_version": 1,
+ "name": "Brooklyn real data \u00b7 8 days \u00b7 1:3 \u00b7 staffing \u00b7 urgency",
+ "arrival_span_hours": 192,
+ "tie_break_seed": 42,
+ "optimizer_seed": 20261029,
+ "baseline_policy": "local",
+ "urgency": {
+  "beta": {
+   "clinical_risk": 1,
+   "decline_risk": 0.5,
+   "authorization": 0.5,
+   "hard_to_place": 0.5
+  },
+  "wait_growth_per_day": 0.1,
+  "hospital_pressure_weight": 0.5,
+  "pressure_start": 0.85,
+  "pressure_full": 0.95,
+  "ed_boarding_full": 10,
+  "authorization_window_hours": 72,
+  "distance_weight_hours": 6,
+  "max_distance_km": 30
+ },
+ "hospitals": [
+  {
+   "id": "Maimonides",
+   "occupancy": 0.745
+  },
+  {
+   "id": "NYU_Langone_Brooklyn",
+   "occupancy": 0.839
+  },
+  {
+   "id": "NYP_Brooklyn_Methodist",
+   "occupancy": 0.907
+  },
+  {
+   "id": "South_Brooklyn_Health",
+   "occupancy": 0.897
+  },
+  {
+   "id": "Brookdale",
+   "occupancy": 0.923
+  },
+  {
+   "id": "Maimonides_Midwood",
+   "occupancy": 0.833
+  },
+  {
+   "id": "Kings_County",
+   "occupancy": 0.92
+  },
+  {
+   "id": "Mount_Sinai_Brooklyn",
+   "occupancy": 0.838
+  },
+  {
+   "id": "Brooklyn_Hospital_Ctr",
+   "occupancy": 0.749
+  },
+  {
+   "id": "SUNY_Downstate",
+   "occupancy": 0.771
+  },
+  {
+   "id": "Interfaith",
+   "occupancy": 0.832
+  },
+  {
+   "id": "Wyckoff_Heights",
+   "occupancy": 0.756
+  },
+  {
+   "id": "Woodhull",
+   "occupancy": 0.842
+  }
+ ],
+ "snfs": [
+  {
+   "id": "335070",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 2.03,
+   "y_km": 3.68
+  },
+  {
+   "id": "335104",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.55,
+   "y_km": -1.84
+  },
+  {
+   "id": "335131",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -1.77,
+   "y_km": 4.52
+  },
+  {
+   "id": "335163",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -1.94,
+   "y_km": 4.42
+  },
+  {
+   "id": "335174",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.97,
+   "y_km": 4.81
+  },
+  {
+   "id": "335178",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 2.11,
+   "y_km": 3.06
+  },
+  {
+   "id": "335245",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -1.52,
+   "y_km": 0.51
+  },
+  {
+   "id": "335288",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -1.35,
+   "y_km": -7.04
+  },
+  {
+   "id": "335290",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 0.68,
+   "y_km": -5.08
+  },
+  {
+   "id": "335328",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -1.94,
+   "y_km": -0.44
+  },
+  {
+   "id": "335381",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 3.04,
+   "y_km": 1.14
+  },
+  {
+   "id": "335411",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.46,
+   "y_km": -7.96
+  },
+  {
+   "id": "335470",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -4.14,
+   "y_km": -0.67
+  },
+  {
+   "id": "335513",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.8,
+   "y_km": -7.99
+  },
+  {
+   "id": "335516",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -2.37,
+   "y_km": 5.31
+  },
+  {
+   "id": "335523",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -4.56,
+   "y_km": -2.16
+  },
+  {
+   "id": "335537",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 1.35,
+   "y_km": 1.53
+  },
+  {
+   "id": "335538",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 0.25,
+   "y_km": 4.43
+  },
+  {
+   "id": "335545",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.97,
+   "y_km": -5.42
+  },
+  {
+   "id": "335558",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -4.48,
+   "y_km": -3.93
+  },
+  {
+   "id": "335560",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -0.34,
+   "y_km": 0.82
+  },
+  {
+   "id": "335604",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 7.43,
+   "y_km": 2.87
+  },
+  {
+   "id": "335609",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 1.18,
+   "y_km": 2.96
+  },
+  {
+   "id": "335625",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -0.76,
+   "y_km": 3.39
+  },
+  {
+   "id": "335626",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -0.68,
+   "y_km": 6.13
+  },
+  {
+   "id": "335637",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 7.43,
+   "y_km": 2.73
+  },
+  {
+   "id": "335648",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -0.68,
+   "y_km": -0.57
+  },
+  {
+   "id": "335653",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 0.84,
+   "y_km": -7.38
+  },
+  {
+   "id": "335656",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.89,
+   "y_km": -5.52
+  },
+  {
+   "id": "335673",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 4.22,
+   "y_km": -0.24
+  },
+  {
+   "id": "335677",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 1.6,
+   "y_km": -6.63
+  },
+  {
+   "id": "335703",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 4.39,
+   "y_km": 3.46
+  },
+  {
+   "id": "335720",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 4.31,
+   "y_km": 0.54
+  },
+  {
+   "id": "335748",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.63,
+   "y_km": -7.94
+  },
+  {
+   "id": "335805",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 0.84,
+   "y_km": 1.67
+  },
+  {
+   "id": "335826",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": 1.86,
+   "y_km": 5.74
+  },
+  {
+   "id": "335847",
+   "accepted_insurances": [
+    "*"
+   ],
+   "x_km": -3.13,
+   "y_km": 4.56
+  }
+ ],
+ "beds": [
+  {
+   "id": "335070_1",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_2",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_3",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_4",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_5",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_6",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335070_7",
+   "snf_id": "335070",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335104_1",
+   "snf_id": "335104",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335104_2",
+   "snf_id": "335104",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_1",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_2",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_3",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_4",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_5",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_6",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_7",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335131_8",
+   "snf_id": "335131",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_1",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_2",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_3",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_4",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_5",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_6",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_7",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_8",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335163_9",
+   "snf_id": "335163",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_1",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_2",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_3",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_4",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_5",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_6",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335174_7",
+   "snf_id": "335174",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335178_1",
+   "snf_id": "335178",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335245_1",
+   "snf_id": "335245",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335245_2",
+   "snf_id": "335245",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_1",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_2",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_3",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_4",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_5",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_6",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_7",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_8",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_9",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_10",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335288_11",
+   "snf_id": "335288",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335290_1",
+   "snf_id": "335290",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335328_1",
+   "snf_id": "335328",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "ventilator",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335328_2",
+   "snf_id": "335328",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_1",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "ventilator"
+   ]
+  },
+  {
+   "id": "335381_2",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_3",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_4",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_5",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_6",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_7",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_8",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_9",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_10",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_11",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_12",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_13",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_14",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_15",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_16",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_17",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_18",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_19",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_20",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_21",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335381_22",
+   "snf_id": "335381",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335411_1",
+   "snf_id": "335411",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335411_2",
+   "snf_id": "335411",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335411_3",
+   "snf_id": "335411",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335411_4",
+   "snf_id": "335411",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335411_5",
+   "snf_id": "335411",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_1",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_2",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_3",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_4",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_5",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_6",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_7",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335470_8",
+   "snf_id": "335470",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_1",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_2",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_3",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_4",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_5",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335513_6",
+   "snf_id": "335513",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335516_1",
+   "snf_id": "335516",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335516_2",
+   "snf_id": "335516",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335523_1",
+   "snf_id": "335523",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_1",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335537_2",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_3",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_4",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335537_5",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_6",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_7",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335537_8",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_9",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335537_10",
+   "snf_id": "335537",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335538_1",
+   "snf_id": "335538",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "ventilator"
+   ]
+  },
+  {
+   "id": "335538_2",
+   "snf_id": "335538",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335545_1",
+   "snf_id": "335545",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335545_2",
+   "snf_id": "335545",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335558_1",
+   "snf_id": "335558",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335558_2",
+   "snf_id": "335558",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335558_3",
+   "snf_id": "335558",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335560_1",
+   "snf_id": "335560",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335560_2",
+   "snf_id": "335560",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335560_3",
+   "snf_id": "335560",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335560_4",
+   "snf_id": "335560",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335604_1",
+   "snf_id": "335604",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335609_1",
+   "snf_id": "335609",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335609_2",
+   "snf_id": "335609",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335609_3",
+   "snf_id": "335609",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335609_4",
+   "snf_id": "335609",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335625_1",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335625_2",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335625_3",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335625_4",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335625_5",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335625_6",
+   "snf_id": "335625",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335626_1",
+   "snf_id": "335626",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335626_2",
+   "snf_id": "335626",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335626_3",
+   "snf_id": "335626",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335637_1",
+   "snf_id": "335637",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335648_1",
+   "snf_id": "335648",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "ventilator"
+   ]
+  },
+  {
+   "id": "335648_2",
+   "snf_id": "335648",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335648_3",
+   "snf_id": "335648",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_1",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_2",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_3",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_4",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_5",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_6",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335653_7",
+   "snf_id": "335653",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335656_1",
+   "snf_id": "335656",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335656_2",
+   "snf_id": "335656",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335656_3",
+   "snf_id": "335656",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335656_4",
+   "snf_id": "335656",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335656_5",
+   "snf_id": "335656",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335673_1",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "ventilator",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335673_2",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335673_3",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335673_4",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335673_5",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335673_6",
+   "snf_id": "335673",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_1",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_2",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_3",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_4",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_5",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335677_6",
+   "snf_id": "335677",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335703_1",
+   "snf_id": "335703",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335703_2",
+   "snf_id": "335703",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335703_3",
+   "snf_id": "335703",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335720_1",
+   "snf_id": "335720",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335720_2",
+   "snf_id": "335720",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335720_3",
+   "snf_id": "335720",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335720_4",
+   "snf_id": "335720",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335748_1",
+   "snf_id": "335748",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335748_2",
+   "snf_id": "335748",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335748_3",
+   "snf_id": "335748",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335748_4",
+   "snf_id": "335748",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_1",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_2",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_3",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_4",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_5",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335805_6",
+   "snf_id": "335805",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335826_1",
+   "snf_id": "335826",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335826_2",
+   "snf_id": "335826",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335826_3",
+   "snf_id": "335826",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335826_4",
+   "snf_id": "335826",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335847_1",
+   "snf_id": "335847",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ]
+  },
+  {
+   "id": "335847_2",
+   "snf_id": "335847",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  },
+  {
+   "id": "335847_3",
+   "snf_id": "335847",
+   "gender": "any",
+   "capabilities": [
+    "rehabilitation"
+   ]
+  }
+ ],
+ "patients": [
+  {
+   "id": "P001",
+   "hospital_id": "Woodhull",
+   "gender": "female",
+   "ready_hour": 1,
+   "length_of_stay_hours": 539,
+   "eligible_snf_ids": [
+    "335826",
+    "335626",
+    "335070",
+    "335516",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 65,
+   "mobility_score": 23,
+   "home_x_km": 1.4,
+   "home_y_km": 7.8,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 49
+  },
+  {
+   "id": "P002",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 5,
+   "length_of_stay_hours": 560,
+   "eligible_snf_ids": [
+    "335560",
+    "335328",
+    "335673",
+    "335805",
+    "335381",
+    "335720",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 64,
+   "mobility_score": 19,
+   "home_x_km": 0.9,
+   "home_y_km": -2.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P003",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 7,
+   "length_of_stay_hours": 2121,
+   "eligible_snf_ids": [
+    "335847",
+    "335516",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 72,
+   "mobility_score": 21,
+   "home_x_km": -3.5,
+   "home_y_km": 4.1,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P004",
+   "hospital_id": "Woodhull",
+   "gender": "female",
+   "ready_hour": 7,
+   "length_of_stay_hours": 1169,
+   "eligible_snf_ids": [
+    "335174",
+    "335163",
+    "335131",
+    "335626"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 81,
+   "mobility_score": 17,
+   "home_x_km": -6.1,
+   "home_y_km": 5.1,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 55
+  },
+  {
+   "id": "P005",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 10,
+   "length_of_stay_hours": 520,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335470",
+    "335104",
+    "335131"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 62,
+   "mobility_score": 16,
+   "home_x_km": -9.2,
+   "home_y_km": 3.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P006",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 10,
+   "length_of_stay_hours": 1861,
+   "eligible_snf_ids": [
+    "335560",
+    "335328",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 79,
+   "mobility_score": 15,
+   "home_x_km": -0.8,
+   "home_y_km": 0.8,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P007",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 12,
+   "length_of_stay_hours": 421,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335545",
+    "335656"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 90,
+   "mobility_score": 14,
+   "home_x_km": -8.9,
+   "home_y_km": -1.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P008",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 12,
+   "length_of_stay_hours": 584,
+   "eligible_snf_ids": [
+    "335516",
+    "335163",
+    "335131",
+    "335626",
+    "335625"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 75,
+   "mobility_score": 15,
+   "home_x_km": -3.0,
+   "home_y_km": 5.0,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P009",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 12,
+   "length_of_stay_hours": 451,
+   "eligible_snf_ids": [
+    "335516",
+    "335847",
+    "335174",
+    "335163",
+    "335131",
+    "335626"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 55,
+   "mobility_score": 24,
+   "home_x_km": -3.1,
+   "home_y_km": 5.7,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 60
+  },
+  {
+   "id": "P010",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 14,
+   "length_of_stay_hours": 411,
+   "eligible_snf_ids": [
+    "335104",
+    "335328",
+    "335174",
+    "335558",
+    "335648",
+    "335163"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 69,
+   "mobility_score": 12,
+   "home_x_km": -5.7,
+   "home_y_km": 0.6,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P011",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 14,
+   "length_of_stay_hours": 258,
+   "eligible_snf_ids": [
+    "335174",
+    "335516",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 67,
+   "mobility_score": 17,
+   "home_x_km": -4.9,
+   "home_y_km": 5.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P012",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 15,
+   "length_of_stay_hours": 187,
+   "eligible_snf_ids": [
+    "335748",
+    "335513",
+    "335656",
+    "335545",
+    "335558",
+    "335653",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 94,
+   "mobility_score": 15,
+   "home_x_km": -3.1,
+   "home_y_km": -7.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 63
+  },
+  {
+   "id": "P013",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 16,
+   "length_of_stay_hours": 901,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335516",
+    "335131",
+    "335104",
+    "335328"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 67,
+   "mobility_score": 20,
+   "home_x_km": -8.9,
+   "home_y_km": 3.2,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P014",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "male",
+   "ready_hour": 17,
+   "length_of_stay_hours": 699,
+   "eligible_snf_ids": [
+    "335104",
+    "335558",
+    "335328",
+    "335648",
+    "335656"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 80,
+   "mobility_score": 15,
+   "home_x_km": -3.1,
+   "home_y_km": -2.5,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 41
+  },
+  {
+   "id": "P015",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 19,
+   "length_of_stay_hours": 836,
+   "eligible_snf_ids": [
+    "335245",
+    "335328",
+    "335470",
+    "335104",
+    "335625"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 70,
+   "mobility_score": 21,
+   "home_x_km": -2.7,
+   "home_y_km": 0.8,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P016",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 19,
+   "length_of_stay_hours": 195,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335174",
+    "335847",
+    "335131",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 88,
+   "mobility_score": 8,
+   "home_x_km": -5.1,
+   "home_y_km": 1.4,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 43
+  },
+  {
+   "id": "P017",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 20,
+   "length_of_stay_hours": 998,
+   "eligible_snf_ids": [
+    "335653",
+    "335677",
+    "335513",
+    "335656",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 96,
+   "mobility_score": 15,
+   "home_x_km": 0.6,
+   "home_y_km": -10.1,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P018",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 21,
+   "length_of_stay_hours": 519,
+   "eligible_snf_ids": [
+    "335720",
+    "335381",
+    "335537",
+    "335805",
+    "335648",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 52,
+   "mobility_score": 20,
+   "home_x_km": 4.1,
+   "home_y_km": -1.5,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P019",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 22,
+   "length_of_stay_hours": 229,
+   "eligible_snf_ids": [
+    "335245",
+    "335104",
+    "335648",
+    "335560",
+    "335847"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 90,
+   "mobility_score": 18,
+   "home_x_km": -3.8,
+   "home_y_km": 0.7,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P020",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 23,
+   "length_of_stay_hours": 1249,
+   "eligible_snf_ids": [
+    "335677",
+    "335656",
+    "335545",
+    "335513",
+    "335558"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 85,
+   "mobility_score": 12,
+   "home_x_km": 0.1,
+   "home_y_km": -5.4,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 47
+  },
+  {
+   "id": "P021",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 23,
+   "length_of_stay_hours": 2104,
+   "eligible_snf_ids": [
+    "335288",
+    "335748",
+    "335653",
+    "335656",
+    "335677"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 92,
+   "mobility_score": 17,
+   "home_x_km": -1.9,
+   "home_y_km": -7.5,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P022",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 24,
+   "length_of_stay_hours": 788,
+   "eligible_snf_ids": [
+    "335104",
+    "335648",
+    "335470",
+    "335560",
+    "335545"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 88,
+   "mobility_score": 17,
+   "home_x_km": -2.1,
+   "home_y_km": -1.6,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P023",
+   "hospital_id": "SUNY_Downstate",
+   "gender": "male",
+   "ready_hour": 28,
+   "length_of_stay_hours": 951,
+   "eligible_snf_ids": [
+    "335625",
+    "335131",
+    "335163",
+    "335626",
+    "335070",
+    "335826"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 91,
+   "mobility_score": 6,
+   "home_x_km": -0.1,
+   "home_y_km": 4.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P024",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "male",
+   "ready_hour": 29,
+   "length_of_stay_hours": 375,
+   "eligible_snf_ids": [
+    "335104",
+    "335245",
+    "335560",
+    "335558",
+    "335470",
+    "335545"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 60,
+   "mobility_score": 18,
+   "home_x_km": -0.7,
+   "home_y_km": -2.7,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 77
+  },
+  {
+   "id": "P025",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "male",
+   "ready_hour": 29,
+   "length_of_stay_hours": 801,
+   "eligible_snf_ids": [
+    "335626",
+    "335847",
+    "335174",
+    "335131",
+    "335163",
+    "335826"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 89,
+   "mobility_score": 14,
+   "home_x_km": -2.6,
+   "home_y_km": 6.5,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P026",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 31,
+   "length_of_stay_hours": 436,
+   "eligible_snf_ids": [
+    "335381",
+    "335537",
+    "335805",
+    "335070",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 73,
+   "mobility_score": 22,
+   "home_x_km": 4.6,
+   "home_y_km": -0.1,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P027",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 32,
+   "length_of_stay_hours": 1250,
+   "eligible_snf_ids": [
+    "335625",
+    "335805",
+    "335537",
+    "335560",
+    "335070"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 70,
+   "mobility_score": 21,
+   "home_x_km": 0.0,
+   "home_y_km": 2.8,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P028",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 35,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335558",
+    "335174",
+    "335847",
+    "335648",
+    "335545"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 98,
+   "mobility_score": 16,
+   "home_x_km": -6.9,
+   "home_y_km": 0.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 59
+  },
+  {
+   "id": "P029",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 35,
+   "length_of_stay_hours": 438,
+   "eligible_snf_ids": [
+    "335104",
+    "335328",
+    "335245",
+    "335847",
+    "335163"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 76,
+   "mobility_score": 18,
+   "home_x_km": -5.6,
+   "home_y_km": 1.0,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 59
+  },
+  {
+   "id": "P030",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 36,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335470",
+    "335245",
+    "335104",
+    "335648",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 93,
+   "mobility_score": 16,
+   "home_x_km": -3.3,
+   "home_y_km": 0.0,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P031",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 39,
+   "length_of_stay_hours": 751,
+   "eligible_snf_ids": [
+    "335805",
+    "335560",
+    "335609",
+    "335537",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 73,
+   "mobility_score": 10,
+   "home_x_km": -0.2,
+   "home_y_km": 2.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 63
+  },
+  {
+   "id": "P032",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 39,
+   "length_of_stay_hours": 628,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335545",
+    "335656"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 80,
+   "mobility_score": 16,
+   "home_x_km": -5.9,
+   "home_y_km": -2.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P033",
+   "hospital_id": "Brookdale",
+   "gender": "male",
+   "ready_hour": 40,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335673",
+    "335648",
+    "335537"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 69,
+   "mobility_score": 22,
+   "home_x_km": 1.9,
+   "home_y_km": -1.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 88
+  },
+  {
+   "id": "P034",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 41,
+   "length_of_stay_hours": 621,
+   "eligible_snf_ids": [
+    "335847",
+    "335516",
+    "335328",
+    "335609",
+    "335537",
+    "335673"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "medium",
+   "age": 80,
+   "mobility_score": 21,
+   "home_x_km": -6.3,
+   "home_y_km": 2.2,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P035",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 41,
+   "length_of_stay_hours": 562,
+   "eligible_snf_ids": [
+    "335516",
+    "335847",
+    "335626",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 51,
+   "mobility_score": 16,
+   "home_x_km": -2.8,
+   "home_y_km": 6.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P036",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 42,
+   "length_of_stay_hours": 1758,
+   "eligible_snf_ids": [
+    "335328",
+    "335847",
+    "335537",
+    "335609",
+    "335673"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "high",
+   "age": 70,
+   "mobility_score": 20,
+   "home_x_km": -4.8,
+   "home_y_km": -0.6,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P037",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 47,
+   "length_of_stay_hours": 616,
+   "eligible_snf_ids": [
+    "335648",
+    "335328",
+    "335470",
+    "335558",
+    "335545"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 56,
+   "mobility_score": 17,
+   "home_x_km": -1.3,
+   "home_y_km": -2.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P038",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "male",
+   "ready_hour": 48,
+   "length_of_stay_hours": 1053,
+   "eligible_snf_ids": [
+    "335677",
+    "335748",
+    "335545"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 83,
+   "mobility_score": 17,
+   "home_x_km": 0.5,
+   "home_y_km": -6.3,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P039",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 49,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335104",
+    "335470",
+    "335558",
+    "335328",
+    "335545",
+    "335656",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 82,
+   "mobility_score": 20,
+   "home_x_km": -4.0,
+   "home_y_km": -1.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 97
+  },
+  {
+   "id": "P040",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 49,
+   "length_of_stay_hours": 272,
+   "eligible_snf_ids": [
+    "335537",
+    "335625",
+    "335560",
+    "335070",
+    "335245"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 59,
+   "mobility_score": 21,
+   "home_x_km": 0.4,
+   "home_y_km": 2.4,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 97
+  },
+  {
+   "id": "P041",
+   "hospital_id": "SUNY_Downstate",
+   "gender": "male",
+   "ready_hour": 49,
+   "length_of_stay_hours": 1106,
+   "eligible_snf_ids": [
+    "335609",
+    "335537",
+    "335805",
+    "335381",
+    "335625",
+    "335560",
+    "335826"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 58,
+   "mobility_score": 22,
+   "home_x_km": 1.7,
+   "home_y_km": 2.7,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 73
+  },
+  {
+   "id": "P042",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 50,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335648",
+    "335560",
+    "335537",
+    "335104",
+    "335673"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 93,
+   "mobility_score": 17,
+   "home_x_km": 0.4,
+   "home_y_km": -2.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 122
+  },
+  {
+   "id": "P043",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "male",
+   "ready_hour": 52,
+   "length_of_stay_hours": 242,
+   "eligible_snf_ids": [
+    "335748",
+    "335513",
+    "335653",
+    "335656",
+    "335558",
+    "335104"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 82,
+   "mobility_score": 17,
+   "home_x_km": -2.1,
+   "home_y_km": -8.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 124
+  },
+  {
+   "id": "P044",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 53,
+   "length_of_stay_hours": 803,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335163",
+    "335131",
+    "335470",
+    "335626",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 92,
+   "mobility_score": 12,
+   "home_x_km": -9.9,
+   "home_y_km": 5.1,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P045",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 55,
+   "length_of_stay_hours": 1040,
+   "eligible_snf_ids": [
+    "335560",
+    "335648",
+    "335104",
+    "335625",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 80,
+   "mobility_score": 19,
+   "home_x_km": -2.0,
+   "home_y_km": 0.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P046",
+   "hospital_id": "Interfaith",
+   "gender": "male",
+   "ready_hour": 55,
+   "length_of_stay_hours": 828,
+   "eligible_snf_ids": [
+    "335070",
+    "335609",
+    "335625",
+    "335131",
+    "335805",
+    "335163",
+    "335537"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 94,
+   "mobility_score": 12,
+   "home_x_km": 0.8,
+   "home_y_km": 4.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P047",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 58,
+   "length_of_stay_hours": 392,
+   "eligible_snf_ids": [
+    "335513",
+    "335656",
+    "335545",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 87,
+   "mobility_score": 15,
+   "home_x_km": -4.3,
+   "home_y_km": -8.1,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 106
+  },
+  {
+   "id": "P048",
+   "hospital_id": "Brookdale",
+   "gender": "male",
+   "ready_hour": 58,
+   "length_of_stay_hours": 735,
+   "eligible_snf_ids": [
+    "335537",
+    "335720",
+    "335805",
+    "335673",
+    "335609"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 53,
+   "mobility_score": 21,
+   "home_x_km": 2.7,
+   "home_y_km": 1.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 130
+  },
+  {
+   "id": "P049",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "male",
+   "ready_hour": 58,
+   "length_of_stay_hours": 641,
+   "eligible_snf_ids": [
+    "335677",
+    "335653",
+    "335513",
+    "335656",
+    "335545",
+    "335648",
+    "335673"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 85,
+   "mobility_score": 14,
+   "home_x_km": 1.8,
+   "home_y_km": -7.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P050",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 59,
+   "length_of_stay_hours": 621,
+   "eligible_snf_ids": [
+    "335174",
+    "335163",
+    "335131",
+    "335470",
+    "335328",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 67,
+   "mobility_score": 13,
+   "home_x_km": -5.1,
+   "home_y_km": 3.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 107
+  },
+  {
+   "id": "P051",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 62,
+   "length_of_stay_hours": 772,
+   "eligible_snf_ids": [
+    "335328",
+    "335847",
+    "335516",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "medium",
+   "age": 94,
+   "mobility_score": 18,
+   "home_x_km": -8.3,
+   "home_y_km": 0.6,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P052",
+   "hospital_id": "Interfaith",
+   "gender": "female",
+   "ready_hour": 63,
+   "length_of_stay_hours": 950,
+   "eligible_snf_ids": [
+    "335537",
+    "335673",
+    "335805",
+    "335560",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 97,
+   "mobility_score": 9,
+   "home_x_km": 2.2,
+   "home_y_km": -0.3,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P053",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 64,
+   "length_of_stay_hours": 2061,
+   "eligible_snf_ids": [
+    "335677",
+    "335653",
+    "335545",
+    "335748",
+    "335513",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 75,
+   "mobility_score": 13,
+   "home_x_km": 0.5,
+   "home_y_km": -5.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P054",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "male",
+   "ready_hour": 64,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335703",
+    "335720",
+    "335673",
+    "335381"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 83,
+   "mobility_score": 20,
+   "home_x_km": 10.0,
+   "home_y_km": 2.3,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P055",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "male",
+   "ready_hour": 64,
+   "length_of_stay_hours": 1524,
+   "eligible_snf_ids": [
+    "335677",
+    "335653",
+    "335288",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 78,
+   "mobility_score": 24,
+   "home_x_km": 0.5,
+   "home_y_km": -4.5,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P056",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 66,
+   "length_of_stay_hours": 916,
+   "eligible_snf_ids": [
+    "335847",
+    "335328",
+    "335609",
+    "335537"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "high",
+   "age": 76,
+   "mobility_score": 12,
+   "home_x_km": -9.1,
+   "home_y_km": 2.4,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P057",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 66,
+   "length_of_stay_hours": 844,
+   "eligible_snf_ids": [
+    "335470",
+    "335328",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 85,
+   "mobility_score": 16,
+   "home_x_km": -5.2,
+   "home_y_km": -0.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P058",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 67,
+   "length_of_stay_hours": 854,
+   "eligible_snf_ids": [
+    "335104",
+    "335328",
+    "335558",
+    "335545",
+    "335656",
+    "335245"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 30,
+   "mobility_score": 23,
+   "home_x_km": -1.4,
+   "home_y_km": -3.3,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P059",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "male",
+   "ready_hour": 69,
+   "length_of_stay_hours": 1203,
+   "eligible_snf_ids": [
+    "335748",
+    "335513",
+    "335558",
+    "335104",
+    "335653",
+    "335677"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 78,
+   "mobility_score": 24,
+   "home_x_km": -3.7,
+   "home_y_km": -6.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P060",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 71,
+   "length_of_stay_hours": 604,
+   "eligible_snf_ids": [
+    "335677",
+    "335653",
+    "335748"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 77,
+   "mobility_score": 17,
+   "home_x_km": 1.3,
+   "home_y_km": -6.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P061",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 72,
+   "length_of_stay_hours": 768,
+   "eligible_snf_ids": [
+    "335648",
+    "335560",
+    "335104",
+    "335470",
+    "335805",
+    "335537"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 69,
+   "mobility_score": 23,
+   "home_x_km": -1.1,
+   "home_y_km": -1.2,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P062",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 72,
+   "length_of_stay_hours": 227,
+   "eligible_snf_ids": [
+    "335537",
+    "335805",
+    "335673",
+    "335609",
+    "335070"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 93,
+   "mobility_score": 19,
+   "home_x_km": 2.7,
+   "home_y_km": 1.1,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P063",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 72,
+   "length_of_stay_hours": 196,
+   "eligible_snf_ids": [
+    "335558",
+    "335545",
+    "335470"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 35,
+   "mobility_score": 24,
+   "home_x_km": -3.3,
+   "home_y_km": -4.0,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P064",
+   "hospital_id": "Brookdale",
+   "gender": "male",
+   "ready_hour": 72,
+   "length_of_stay_hours": 901,
+   "eligible_snf_ids": [
+    "335703",
+    "335070",
+    "335826",
+    "335720",
+    "335673",
+    "335537",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 63,
+   "mobility_score": 21,
+   "home_x_km": 6.1,
+   "home_y_km": 4.9,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 96
+  },
+  {
+   "id": "P065",
+   "hospital_id": "SUNY_Downstate",
+   "gender": "female",
+   "ready_hour": 72,
+   "length_of_stay_hours": 936,
+   "eligible_snf_ids": [
+    "335648",
+    "335328",
+    "335104",
+    "335537"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 67,
+   "mobility_score": 12,
+   "home_x_km": -1.0,
+   "home_y_km": -0.3,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P066",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 74,
+   "length_of_stay_hours": 278,
+   "eligible_snf_ids": [
+    "335847",
+    "335470",
+    "335131",
+    "335104",
+    "335328",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 68,
+   "mobility_score": 18,
+   "home_x_km": -10.7,
+   "home_y_km": 3.6,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P067",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "male",
+   "ready_hour": 76,
+   "length_of_stay_hours": 405,
+   "eligible_snf_ids": [
+    "335748",
+    "335656",
+    "335545",
+    "335677",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 92,
+   "mobility_score": 15,
+   "home_x_km": -2.9,
+   "home_y_km": -10.6,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P068",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 76,
+   "length_of_stay_hours": 384,
+   "eligible_snf_ids": [
+    "335288",
+    "335653",
+    "335677",
+    "335656",
+    "335513"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 94,
+   "mobility_score": 12,
+   "home_x_km": -0.9,
+   "home_y_km": -6.3,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P069",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 78,
+   "length_of_stay_hours": 364,
+   "eligible_snf_ids": [
+    "335516",
+    "335847",
+    "335163"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 76,
+   "mobility_score": 19,
+   "home_x_km": -2.8,
+   "home_y_km": 5.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P070",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 82,
+   "length_of_stay_hours": 760,
+   "eligible_snf_ids": [
+    "335328",
+    "335847",
+    "335163",
+    "335131"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 96,
+   "mobility_score": 16,
+   "home_x_km": -3.9,
+   "home_y_km": 1.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P071",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "male",
+   "ready_hour": 83,
+   "length_of_stay_hours": 350,
+   "eligible_snf_ids": [
+    "335513",
+    "335653",
+    "335545",
+    "335677"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 65,
+   "mobility_score": 18,
+   "home_x_km": -3.1,
+   "home_y_km": -10.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 131
+  },
+  {
+   "id": "P072",
+   "hospital_id": "Interfaith",
+   "gender": "male",
+   "ready_hour": 84,
+   "length_of_stay_hours": 420,
+   "eligible_snf_ids": [
+    "335720",
+    "335070",
+    "335673",
+    "335537",
+    "335826"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 95,
+   "mobility_score": 17,
+   "home_x_km": 5.2,
+   "home_y_km": 3.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P073",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 85,
+   "length_of_stay_hours": 1521,
+   "eligible_snf_ids": [
+    "335104",
+    "335328",
+    "335470",
+    "335648",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 36,
+   "mobility_score": 24,
+   "home_x_km": -2.8,
+   "home_y_km": -1.8,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P074",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 87,
+   "length_of_stay_hours": 601,
+   "eligible_snf_ids": [
+    "335328",
+    "335847",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "high",
+   "age": 72,
+   "mobility_score": 21,
+   "home_x_km": -4.9,
+   "home_y_km": -1.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 135
+  },
+  {
+   "id": "P075",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 88,
+   "length_of_stay_hours": 1822,
+   "eligible_snf_ids": [
+    "335673",
+    "335720",
+    "335648",
+    "335537",
+    "335560",
+    "335805",
+    "335328"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 69,
+   "mobility_score": 17,
+   "home_x_km": 2.5,
+   "home_y_km": -2.0,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P076",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 89,
+   "length_of_stay_hours": 794,
+   "eligible_snf_ids": [
+    "335560",
+    "335537",
+    "335328",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 52,
+   "mobility_score": 19,
+   "home_x_km": 0.1,
+   "home_y_km": 0.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P077",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 93,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335558",
+    "335656",
+    "335104",
+    "335288",
+    "335470"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 81,
+   "mobility_score": 18,
+   "home_x_km": -3.0,
+   "home_y_km": -4.0,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P078",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 96,
+   "length_of_stay_hours": 1557,
+   "eligible_snf_ids": [
+    "335328",
+    "335847",
+    "335516",
+    "335609",
+    "335703"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "low",
+   "age": 73,
+   "mobility_score": 17,
+   "home_x_km": -3.9,
+   "home_y_km": -0.3,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   },
+   "authorization_expiry_hour": 168
+  },
+  {
+   "id": "P079",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 96,
+   "length_of_stay_hours": 178,
+   "eligible_snf_ids": [
+    "335826",
+    "335070",
+    "335381",
+    "335626",
+    "335537",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 69,
+   "mobility_score": 16,
+   "home_x_km": 3.9,
+   "home_y_km": 5.4,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 144
+  },
+  {
+   "id": "P080",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "male",
+   "ready_hour": 97,
+   "length_of_stay_hours": 1163,
+   "eligible_snf_ids": [
+    "335653",
+    "335288",
+    "335656",
+    "335545",
+    "335748",
+    "335513"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 66,
+   "mobility_score": 20,
+   "home_x_km": 0.9,
+   "home_y_km": -5.6,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 169
+  },
+  {
+   "id": "P081",
+   "hospital_id": "Kings_County",
+   "gender": "female",
+   "ready_hour": 98,
+   "length_of_stay_hours": 1098,
+   "eligible_snf_ids": [
+    "335648",
+    "335560",
+    "335245",
+    "335328",
+    "335537",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 59,
+   "mobility_score": 24,
+   "home_x_km": -0.6,
+   "home_y_km": -0.4,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 170
+  },
+  {
+   "id": "P082",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 100,
+   "length_of_stay_hours": 2122,
+   "eligible_snf_ids": [
+    "335104",
+    "335470",
+    "335328",
+    "335558",
+    "335656"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 18,
+   "mobility_score": 21,
+   "home_x_km": -3.4,
+   "home_y_km": -1.8,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P083",
+   "hospital_id": "Wyckoff_Heights",
+   "gender": "male",
+   "ready_hour": 102,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335826",
+    "335626",
+    "335070",
+    "335131",
+    "335609",
+    "335174"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 52,
+   "mobility_score": 19,
+   "home_x_km": 2.9,
+   "home_y_km": 13.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P084",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 107,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335163",
+    "335131",
+    "335625",
+    "335626"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 65,
+   "mobility_score": 19,
+   "home_x_km": -4.3,
+   "home_y_km": 4.0,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 131
+  },
+  {
+   "id": "P085",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 111,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335104",
+    "335558",
+    "335328"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 53,
+   "mobility_score": 21,
+   "home_x_km": -4.2,
+   "home_y_km": -2.2,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 135
+  },
+  {
+   "id": "P086",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 114,
+   "length_of_stay_hours": 335,
+   "eligible_snf_ids": [
+    "335470",
+    "335174",
+    "335558",
+    "335328"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 69,
+   "mobility_score": 19,
+   "home_x_km": -7.8,
+   "home_y_km": 0.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 162
+  },
+  {
+   "id": "P087",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 116,
+   "length_of_stay_hours": 938,
+   "eligible_snf_ids": [
+    "335609",
+    "335805",
+    "335163"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 92,
+   "mobility_score": 10,
+   "home_x_km": -0.1,
+   "home_y_km": 3.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 164
+  },
+  {
+   "id": "P088",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 118,
+   "length_of_stay_hours": 497,
+   "eligible_snf_ids": [
+    "335703",
+    "335673",
+    "335070"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 56,
+   "mobility_score": 24,
+   "home_x_km": 5.7,
+   "home_y_km": 2.1,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 190
+  },
+  {
+   "id": "P089",
+   "hospital_id": "Brookdale",
+   "gender": "male",
+   "ready_hour": 118,
+   "length_of_stay_hours": 663,
+   "eligible_snf_ids": [
+    "335537",
+    "335609",
+    "335070",
+    "335720",
+    "335703"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 20,
+   "mobility_score": 24,
+   "home_x_km": 2.5,
+   "home_y_km": 1.7,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   },
+   "authorization_expiry_hour": 190
+  },
+  {
+   "id": "P090",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 119,
+   "length_of_stay_hours": 2024,
+   "eligible_snf_ids": [
+    "335558",
+    "335104",
+    "335545",
+    "335656",
+    "335328"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 92,
+   "mobility_score": 19,
+   "home_x_km": -5.7,
+   "home_y_km": -2.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 167
+  },
+  {
+   "id": "P091",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 123,
+   "length_of_stay_hours": 646,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335163"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 93,
+   "mobility_score": 19,
+   "home_x_km": -5.0,
+   "home_y_km": 2.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 195
+  },
+  {
+   "id": "P092",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "female",
+   "ready_hour": 123,
+   "length_of_stay_hours": 1781,
+   "eligible_snf_ids": [
+    "335545",
+    "335558",
+    "335104",
+    "335748",
+    "335513"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 71,
+   "mobility_score": 17,
+   "home_x_km": -2.6,
+   "home_y_km": -4.6,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P093",
+   "hospital_id": "Kings_County",
+   "gender": "female",
+   "ready_hour": 125,
+   "length_of_stay_hours": 1995,
+   "eligible_snf_ids": [
+    "335673",
+    "335537",
+    "335609",
+    "335328",
+    "335847"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "high",
+   "age": 84,
+   "mobility_score": 11,
+   "home_x_km": 5.1,
+   "home_y_km": 1.4,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 149
+  },
+  {
+   "id": "P094",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 126,
+   "length_of_stay_hours": 670,
+   "eligible_snf_ids": [
+    "335070",
+    "335381",
+    "335720",
+    "335537",
+    "335673",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 67,
+   "mobility_score": 19,
+   "home_x_km": 4.2,
+   "home_y_km": 3.5,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P095",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 127,
+   "length_of_stay_hours": 1128,
+   "eligible_snf_ids": [
+    "335104",
+    "335470",
+    "335328",
+    "335656",
+    "335648",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 90,
+   "mobility_score": 12,
+   "home_x_km": -3.9,
+   "home_y_km": -2.0,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P096",
+   "hospital_id": "Interfaith",
+   "gender": "female",
+   "ready_hour": 128,
+   "length_of_stay_hours": 2283,
+   "eligible_snf_ids": [
+    "335720",
+    "335673",
+    "335805",
+    "335070"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 92,
+   "mobility_score": 16,
+   "home_x_km": 4.8,
+   "home_y_km": 0.2,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P097",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 129,
+   "length_of_stay_hours": 314,
+   "eligible_snf_ids": [
+    "335673",
+    "335720",
+    "335381",
+    "335653",
+    "335537",
+    "335648",
+    "335703"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 65,
+   "mobility_score": 19,
+   "home_x_km": 5.2,
+   "home_y_km": -3.5,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P098",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 131,
+   "length_of_stay_hours": 803,
+   "eligible_snf_ids": [
+    "335513",
+    "335653",
+    "335545",
+    "335677",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 58,
+   "mobility_score": 18,
+   "home_x_km": -1.9,
+   "home_y_km": -8.6,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 179
+  },
+  {
+   "id": "P099",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 133,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335104",
+    "335545",
+    "335656",
+    "335328",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 67,
+   "mobility_score": 15,
+   "home_x_km": -6.2,
+   "home_y_km": -2.6,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P100",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 133,
+   "length_of_stay_hours": 300,
+   "eligible_snf_ids": [
+    "335626",
+    "335131",
+    "335847"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 58,
+   "mobility_score": 21,
+   "home_x_km": -1.9,
+   "home_y_km": 8.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P101",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 136,
+   "length_of_stay_hours": 2335,
+   "eligible_snf_ids": [
+    "335470",
+    "335328",
+    "335558",
+    "335245",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 80,
+   "mobility_score": 13,
+   "home_x_km": -5.6,
+   "home_y_km": -0.4,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P102",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 136,
+   "length_of_stay_hours": 219,
+   "eligible_snf_ids": [
+    "335847",
+    "335174",
+    "335625",
+    "335470"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 86,
+   "mobility_score": 15,
+   "home_x_km": -3.7,
+   "home_y_km": 2.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 184
+  },
+  {
+   "id": "P103",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "male",
+   "ready_hour": 137,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335381",
+    "335673",
+    "335720",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 95,
+   "mobility_score": 21,
+   "home_x_km": 2.1,
+   "home_y_km": -0.5,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P104",
+   "hospital_id": "Woodhull",
+   "gender": "male",
+   "ready_hour": 137,
+   "length_of_stay_hours": 309,
+   "eligible_snf_ids": [
+    "335626",
+    "335609",
+    "335625"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 62,
+   "mobility_score": 21,
+   "home_x_km": 1.3,
+   "home_y_km": 5.6,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P105",
+   "hospital_id": "Wyckoff_Heights",
+   "gender": "female",
+   "ready_hour": 138,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335826",
+    "335070",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 92,
+   "mobility_score": 15,
+   "home_x_km": 2.6,
+   "home_y_km": 7.7,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P106",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 141,
+   "length_of_stay_hours": 1281,
+   "eligible_snf_ids": [
+    "335653",
+    "335748",
+    "335513"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 91,
+   "mobility_score": 15,
+   "home_x_km": 1.4,
+   "home_y_km": -7.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P107",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 141,
+   "length_of_stay_hours": 485,
+   "eligible_snf_ids": [
+    "335328",
+    "335104",
+    "335648",
+    "335245",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 79,
+   "mobility_score": 15,
+   "home_x_km": -1.8,
+   "home_y_km": -2.0,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P108",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 143,
+   "length_of_stay_hours": 935,
+   "eligible_snf_ids": [
+    "335070",
+    "335626",
+    "335609",
+    "335131",
+    "335163"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 56,
+   "mobility_score": 22,
+   "home_x_km": 2.1,
+   "home_y_km": 6.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 191
+  },
+  {
+   "id": "P109",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "male",
+   "ready_hour": 143,
+   "length_of_stay_hours": 1667,
+   "eligible_snf_ids": [
+    "335163",
+    "335131",
+    "335625",
+    "335626",
+    "335174",
+    "335609",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 72,
+   "mobility_score": 18,
+   "home_x_km": -1.8,
+   "home_y_km": 4.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 167
+  },
+  {
+   "id": "P110",
+   "hospital_id": "Wyckoff_Heights",
+   "gender": "male",
+   "ready_hour": 143,
+   "length_of_stay_hours": 655,
+   "eligible_snf_ids": [
+    "335070",
+    "335609",
+    "335381",
+    "335626",
+    "335537",
+    "335720",
+    "335625"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 61,
+   "mobility_score": 23,
+   "home_x_km": 4.2,
+   "home_y_km": 5.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P111",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 145,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335328",
+    "335470",
+    "335648",
+    "335558",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 83,
+   "mobility_score": 22,
+   "home_x_km": -2.8,
+   "home_y_km": -1.5,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P112",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 145,
+   "length_of_stay_hours": 331,
+   "eligible_snf_ids": [
+    "335673",
+    "335648",
+    "335381",
+    "335560",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 75,
+   "mobility_score": 19,
+   "home_x_km": 2.2,
+   "home_y_km": -2.0,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P113",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 146,
+   "length_of_stay_hours": 1941,
+   "eligible_snf_ids": [
+    "335174",
+    "335516",
+    "335131",
+    "335625",
+    "335626",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 95,
+   "mobility_score": 17,
+   "home_x_km": -3.7,
+   "home_y_km": 4.5,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 170
+  },
+  {
+   "id": "P114",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 148,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335516",
+    "335131",
+    "335826",
+    "335625"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 87,
+   "mobility_score": 16,
+   "home_x_km": -0.4,
+   "home_y_km": 6.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 220
+  },
+  {
+   "id": "P115",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 149,
+   "length_of_stay_hours": 241,
+   "eligible_snf_ids": [
+    "335673",
+    "335328",
+    "335537",
+    "335609",
+    "335847",
+    "335516"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation",
+    "dialysis"
+   ],
+   "clinical_risk": "medium",
+   "age": 66,
+   "mobility_score": 21,
+   "home_x_km": 2.6,
+   "home_y_km": -5.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 197
+  },
+  {
+   "id": "P116",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 150,
+   "length_of_stay_hours": 1115,
+   "eligible_snf_ids": [
+    "335104",
+    "335558",
+    "335328",
+    "335656",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 85,
+   "mobility_score": 17,
+   "home_x_km": -7.1,
+   "home_y_km": -1.0,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 222
+  },
+  {
+   "id": "P117",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 152,
+   "length_of_stay_hours": 417,
+   "eligible_snf_ids": [
+    "335381",
+    "335537",
+    "335703",
+    "335805",
+    "335609"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 28,
+   "mobility_score": 16,
+   "home_x_km": 3.9,
+   "home_y_km": 0.5,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 200
+  },
+  {
+   "id": "P118",
+   "hospital_id": "Mount_Sinai_Brooklyn",
+   "gender": "male",
+   "ready_hour": 152,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335677",
+    "335653",
+    "335328",
+    "335656",
+    "335673"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 65,
+   "mobility_score": 22,
+   "home_x_km": 1.1,
+   "home_y_km": -4.5,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 224
+  },
+  {
+   "id": "P119",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 161,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335560",
+    "335328",
+    "335648",
+    "335470"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 92,
+   "mobility_score": 14,
+   "home_x_km": -1.9,
+   "home_y_km": 1.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 233
+  },
+  {
+   "id": "P120",
+   "hospital_id": "SUNY_Downstate",
+   "gender": "male",
+   "ready_hour": 161,
+   "length_of_stay_hours": 501,
+   "eligible_snf_ids": [
+    "335648",
+    "335560",
+    "335805"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 50,
+   "mobility_score": 24,
+   "home_x_km": -0.6,
+   "home_y_km": -0.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P121",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 163,
+   "length_of_stay_hours": 1035,
+   "eligible_snf_ids": [
+    "335656",
+    "335104",
+    "335513",
+    "335748",
+    "335470",
+    "335328"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 82,
+   "mobility_score": 11,
+   "home_x_km": -5.0,
+   "home_y_km": -4.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P122",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 164,
+   "length_of_stay_hours": 838,
+   "eligible_snf_ids": [
+    "335558",
+    "335104",
+    "335656"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 75,
+   "mobility_score": 14,
+   "home_x_km": -7.5,
+   "home_y_km": -3.0,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 212
+  },
+  {
+   "id": "P123",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 164,
+   "length_of_stay_hours": 584,
+   "eligible_snf_ids": [
+    "335163",
+    "335516",
+    "335174"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 72,
+   "mobility_score": 20,
+   "home_x_km": -2.7,
+   "home_y_km": 3.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P124",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 165,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335847",
+    "335163",
+    "335560",
+    "335174"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 77,
+   "mobility_score": 19,
+   "home_x_km": -2.8,
+   "home_y_km": 2.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   },
+   "authorization_expiry_hour": 237
+  },
+  {
+   "id": "P125",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 167,
+   "length_of_stay_hours": 1539,
+   "eligible_snf_ids": [
+    "335470",
+    "335558",
+    "335545",
+    "335656"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 96,
+   "mobility_score": 19,
+   "home_x_km": -6.8,
+   "home_y_km": -1.8,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P126",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 170,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335626",
+    "335516",
+    "335131",
+    "335163"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 97,
+   "mobility_score": 14,
+   "home_x_km": -0.8,
+   "home_y_km": 6.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P127",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 171,
+   "length_of_stay_hours": 323,
+   "eligible_snf_ids": [
+    "335174",
+    "335470",
+    "335516",
+    "335131"
+   ],
+   "insurance_type": "Commercial",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 63,
+   "mobility_score": 15,
+   "home_x_km": -6.3,
+   "home_y_km": 2.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 219
+  },
+  {
+   "id": "P128",
+   "hospital_id": "Brooklyn_Hospital_Ctr",
+   "gender": "female",
+   "ready_hour": 172,
+   "length_of_stay_hours": 482,
+   "eligible_snf_ids": [
+    "335174",
+    "335847",
+    "335516",
+    "335131",
+    "335470"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 91,
+   "mobility_score": 22,
+   "home_x_km": -5.0,
+   "home_y_km": 3.5,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P129",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 173,
+   "length_of_stay_hours": 755,
+   "eligible_snf_ids": [
+    "335174",
+    "335163",
+    "335131",
+    "335470",
+    "335625"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 83,
+   "mobility_score": 15,
+   "home_x_km": -5.6,
+   "home_y_km": 3.3,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P130",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 173,
+   "length_of_stay_hours": 202,
+   "eligible_snf_ids": [
+    "335847",
+    "335174",
+    "335625",
+    "335516",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 56,
+   "mobility_score": 17,
+   "home_x_km": -3.0,
+   "home_y_km": 2.8,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P131",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 173,
+   "length_of_stay_hours": 1347,
+   "eligible_snf_ids": [
+    "335673",
+    "335381",
+    "335537",
+    "335805",
+    "335703"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 61,
+   "mobility_score": 19,
+   "home_x_km": 3.9,
+   "home_y_km": -0.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P132",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 173,
+   "length_of_stay_hours": 351,
+   "eligible_snf_ids": [
+    "335653",
+    "335288",
+    "335677",
+    "335748",
+    "335513",
+    "335656",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 58,
+   "mobility_score": 22,
+   "home_x_km": 0.3,
+   "home_y_km": -10.6,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   },
+   "authorization_expiry_hour": 221
+  },
+  {
+   "id": "P133",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "female",
+   "ready_hour": 175,
+   "length_of_stay_hours": 852,
+   "eligible_snf_ids": [
+    "335104",
+    "335470",
+    "335648",
+    "335545",
+    "335656",
+    "335560",
+    "335805"
+   ],
+   "insurance_type": "Medicaid",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 75,
+   "mobility_score": 19,
+   "home_x_km": -3.9,
+   "home_y_km": -1.7,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P134",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 177,
+   "length_of_stay_hours": 459,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335328",
+    "335847",
+    "335163",
+    "335131",
+    "335648"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 68,
+   "mobility_score": 18,
+   "home_x_km": -5.5,
+   "home_y_km": 1.1,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P135",
+   "hospital_id": "Maimonides",
+   "gender": "female",
+   "ready_hour": 177,
+   "length_of_stay_hours": 852,
+   "eligible_snf_ids": [
+    "335648",
+    "335245",
+    "335805",
+    "335537"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 82,
+   "mobility_score": 19,
+   "home_x_km": -0.2,
+   "home_y_km": -0.3,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 249
+  },
+  {
+   "id": "P136",
+   "hospital_id": "Brookdale",
+   "gender": "male",
+   "ready_hour": 177,
+   "length_of_stay_hours": 780,
+   "eligible_snf_ids": [
+    "335673",
+    "335381",
+    "335720",
+    "335648",
+    "335537",
+    "335560",
+    "335609"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 66,
+   "mobility_score": 19,
+   "home_x_km": 2.1,
+   "home_y_km": -1.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 225
+  },
+  {
+   "id": "P137",
+   "hospital_id": "Wyckoff_Heights",
+   "gender": "male",
+   "ready_hour": 177,
+   "length_of_stay_hours": 852,
+   "eligible_snf_ids": [
+    "335626",
+    "335826",
+    "335131",
+    "335847"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 88,
+   "mobility_score": 16,
+   "home_x_km": 0.0,
+   "home_y_km": 10.2,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P138",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "male",
+   "ready_hour": 179,
+   "length_of_stay_hours": 548,
+   "eligible_snf_ids": [
+    "335537",
+    "335560",
+    "335070",
+    "335625",
+    "335381"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 32,
+   "mobility_score": 24,
+   "home_x_km": 1.0,
+   "home_y_km": 2.0,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 227
+  },
+  {
+   "id": "P139",
+   "hospital_id": "NYP_Brooklyn_Methodist",
+   "gender": "female",
+   "ready_hour": 181,
+   "length_of_stay_hours": 489,
+   "eligible_snf_ids": [
+    "335805",
+    "335609",
+    "335560"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "high",
+   "age": 62,
+   "mobility_score": 16,
+   "home_x_km": 0.4,
+   "home_y_km": 2.1,
+   "care_hours_per_day": {
+    "RN": 0.997,
+    "LPN": 0.887,
+    "CNA": 3.531
+   }
+  },
+  {
+   "id": "P140",
+   "hospital_id": "NYU_Langone_Brooklyn",
+   "gender": "male",
+   "ready_hour": 183,
+   "length_of_stay_hours": 1672,
+   "eligible_snf_ids": [
+    "335470",
+    "335104",
+    "335328",
+    "335245",
+    "335847"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 72,
+   "mobility_score": 18,
+   "home_x_km": -6.0,
+   "home_y_km": 0.6,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P141",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 185,
+   "length_of_stay_hours": 375,
+   "eligible_snf_ids": [
+    "335245",
+    "335648",
+    "335560",
+    "335537",
+    "335470",
+    "335104"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 48,
+   "mobility_score": 24,
+   "home_x_km": -1.3,
+   "home_y_km": 0.1,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P142",
+   "hospital_id": "Maimonides_Midwood",
+   "gender": "female",
+   "ready_hour": 186,
+   "length_of_stay_hours": 770,
+   "eligible_snf_ids": [
+    "335288",
+    "335653",
+    "335545"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 74,
+   "mobility_score": 18,
+   "home_x_km": -0.5,
+   "home_y_km": -4.8,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   }
+  },
+  {
+   "id": "P143",
+   "hospital_id": "Maimonides",
+   "gender": "male",
+   "ready_hour": 188,
+   "length_of_stay_hours": 2176,
+   "eligible_snf_ids": [
+    "335104",
+    "335328",
+    "335174",
+    "335245"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 54,
+   "mobility_score": 24,
+   "home_x_km": -6.7,
+   "home_y_km": 0.6,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P144",
+   "hospital_id": "Brookdale",
+   "gender": "female",
+   "ready_hour": 190,
+   "length_of_stay_hours": 168,
+   "eligible_snf_ids": [
+    "335104",
+    "335648",
+    "335560",
+    "335558"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 88,
+   "mobility_score": 17,
+   "home_x_km": -2.8,
+   "home_y_km": -0.3,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   }
+  },
+  {
+   "id": "P145",
+   "hospital_id": "South_Brooklyn_Health",
+   "gender": "female",
+   "ready_hour": 191,
+   "length_of_stay_hours": 700,
+   "eligible_snf_ids": [
+    "335653",
+    "335677",
+    "335656",
+    "335545",
+    "335513"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 74,
+   "mobility_score": 20,
+   "home_x_km": -0.5,
+   "home_y_km": -6.2,
+   "care_hours_per_day": {
+    "RN": 0.757,
+    "LPN": 0.674,
+    "CNA": 2.684
+   },
+   "authorization_expiry_hour": 263
+  },
+  {
+   "id": "P146",
+   "hospital_id": "Kings_County",
+   "gender": "male",
+   "ready_hour": 191,
+   "length_of_stay_hours": 1906,
+   "eligible_snf_ids": [
+    "335537",
+    "335805",
+    "335609",
+    "335720",
+    "335070"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "low",
+   "age": 68,
+   "mobility_score": 24,
+   "home_x_km": 1.9,
+   "home_y_km": 1.1,
+   "care_hours_per_day": {
+    "RN": 0.678,
+    "LPN": 0.603,
+    "CNA": 2.401
+   }
+  },
+  {
+   "id": "P147",
+   "hospital_id": "Kings_County",
+   "gender": "female",
+   "ready_hour": 191,
+   "length_of_stay_hours": 2400,
+   "eligible_snf_ids": [
+    "335648",
+    "335537",
+    "335381"
+   ],
+   "insurance_type": "Medicare",
+   "required_capabilities": [
+    "rehabilitation"
+   ],
+   "clinical_risk": "medium",
+   "age": 80,
+   "mobility_score": 20,
+   "home_x_km": 0.9,
+   "home_y_km": -0.4,
+   "care_hours_per_day": {
+    "RN": 0.837,
+    "LPN": 0.745,
+    "CNA": 2.966
+   },
+   "authorization_expiry_hour": 215
+  }
+ ],
+ "staffing": {
+  "schedule_type": "daily_repeating",
+  "data_source": "CMS PBJ 2026Q2 hours per resident-day x vacant beds",
+  "shifts": [
+   {
+    "snf_id": "335070",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.859,
+     "LPN": 5.985,
+     "CNA": 14.544
+    }
+   },
+   {
+    "snf_id": "335104",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.146,
+     "LPN": 0.938,
+     "CNA": 3.989
+    }
+   },
+   {
+    "snf_id": "335131",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 4.957,
+     "LPN": 5.127,
+     "CNA": 16.741
+    }
+   },
+   {
+    "snf_id": "335163",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 6.397,
+     "LPN": 3.612,
+     "CNA": 22.464
+    }
+   },
+   {
+    "snf_id": "335174",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 6.085,
+     "LPN": 2.011,
+     "CNA": 16.424
+    }
+   },
+   {
+    "snf_id": "335178",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.395,
+     "LPN": 0.858,
+     "CNA": 2.401
+    }
+   },
+   {
+    "snf_id": "335245",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.765,
+     "LPN": 0.907,
+     "CNA": 3.536
+    }
+   },
+   {
+    "snf_id": "335288",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 12.017,
+     "LPN": 0.698,
+     "CNA": 21.334
+    }
+   },
+   {
+    "snf_id": "335290",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.556,
+     "LPN": 0.391,
+     "CNA": 1.911
+    }
+   },
+   {
+    "snf_id": "335328",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.585,
+     "LPN": 1.239,
+     "CNA": 5.72
+    }
+   },
+   {
+    "snf_id": "335381",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 15.685,
+     "LPN": 21.766,
+     "CNA": 58.365
+    }
+   },
+   {
+    "snf_id": "335411",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 5.146,
+     "LPN": 0.541,
+     "CNA": 9.811
+    }
+   },
+   {
+    "snf_id": "335470",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 4.434,
+     "LPN": 6.014,
+     "CNA": 17.92
+    }
+   },
+   {
+    "snf_id": "335513",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.615,
+     "LPN": 2.796,
+     "CNA": 12.783
+    }
+   },
+   {
+    "snf_id": "335516",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.878,
+     "LPN": 0.747,
+     "CNA": 3.952
+    }
+   },
+   {
+    "snf_id": "335523",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.839,
+     "LPN": 0.4,
+     "CNA": 2.308
+    }
+   },
+   {
+    "snf_id": "335537",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 9.938,
+     "LPN": 8.237,
+     "CNA": 28.009
+    }
+   },
+   {
+    "snf_id": "335538",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.637,
+     "LPN": 1.445,
+     "CNA": 4.389
+    }
+   },
+   {
+    "snf_id": "335545",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.731,
+     "LPN": 1.022,
+     "CNA": 4.759
+    }
+   },
+   {
+    "snf_id": "335558",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.861,
+     "LPN": 2.169,
+     "CNA": 6.533
+    }
+   },
+   {
+    "snf_id": "335560",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 2.022,
+     "LPN": 1.483,
+     "CNA": 7.568
+    }
+   },
+   {
+    "snf_id": "335604",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.631,
+     "LPN": 0.601,
+     "CNA": 1.886
+    }
+   },
+   {
+    "snf_id": "335609",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 2.726,
+     "LPN": 1.342,
+     "CNA": 9.421
+    }
+   },
+   {
+    "snf_id": "335625",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 6.112,
+     "LPN": 0.865,
+     "CNA": 12.226
+    }
+   },
+   {
+    "snf_id": "335626",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.688,
+     "LPN": 2.389,
+     "CNA": 7.645
+    }
+   },
+   {
+    "snf_id": "335637",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.497,
+     "LPN": 0.613,
+     "CNA": 2.494
+    }
+   },
+   {
+    "snf_id": "335648",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 3.678,
+     "LPN": 2.142,
+     "CNA": 7.841
+    }
+   },
+   {
+    "snf_id": "335653",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 4.673,
+     "LPN": 3.787,
+     "CNA": 16.228
+    }
+   },
+   {
+    "snf_id": "335656",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.767,
+     "LPN": 5.198,
+     "CNA": 13.502
+    }
+   },
+   {
+    "snf_id": "335673",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 2.368,
+     "LPN": 4.585,
+     "CNA": 12.372
+    }
+   },
+   {
+    "snf_id": "335677",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 3.428,
+     "LPN": 3.405,
+     "CNA": 14.852
+    }
+   },
+   {
+    "snf_id": "335703",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 0.786,
+     "LPN": 2.415,
+     "CNA": 6.505
+    }
+   },
+   {
+    "snf_id": "335720",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.034,
+     "LPN": 2.302,
+     "CNA": 7.433
+    }
+   },
+   {
+    "snf_id": "335748",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 2.921,
+     "LPN": 1.153,
+     "CNA": 8.133
+    }
+   },
+   {
+    "snf_id": "335805",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 7.214,
+     "LPN": 1.75,
+     "CNA": 15.518
+    }
+   },
+   {
+    "snf_id": "335826",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 3.156,
+     "LPN": 1.647,
+     "CNA": 7.285
+    }
+   },
+   {
+    "snf_id": "335847",
+    "start_hour": 0,
+    "end_hour": 24,
+    "direct_care_hours": {
+     "RN": 1.346,
+     "LPN": 1.936,
+     "CNA": 6.482
+    }
+   }
+  ]
+ }
+}
