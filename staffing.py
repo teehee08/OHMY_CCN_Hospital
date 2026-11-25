@@ -55,35 +55,88 @@ def parse(value, snfs):
     return {"schedule_type": "daily_repeating", "data_source": str(value.get("data_source", "unspecified"))[:80], "shifts": normalized}
 
 
+_CACHE = {}
+
+
+def _prepared(s):
+    """Per-scenario lookups: shift rows by SNF and patient demand per clock hour."""
+    key = id(s)
+    cached = _CACHE.get(key)
+    if cached is None or cached[0] is not s:
+        rows = {}
+        for row in s.staffing["shifts"]:
+            rows.setdefault(row["snf_id"], []).append(row)
+        demand = [tuple(dict(p.care_hours_per_day)[role] / 24 for role in ROLES) for p in s.patients]
+        # An SNF can never run short when every one of its beds, filled by the most
+        # demanding patient, still fits within its lowest hourly supply: skip its checks.
+        beds = {}
+        for bed in s.beds:
+            beds[bed.snf_id] = beds.get(bed.snf_id, 0) + 1
+        peak = [max((d[k] for d in demand), default=0.0) for k in range(len(ROLES))]
+        slack = set()
+        for snf, snf_rows in rows.items():
+            lowest = [min(r["direct_care_hours"][role] / (r["end_hour"] - r["start_hour"]) for r in snf_rows)
+                      for role in ROLES]
+            if all(beds.get(snf, 0) * peak[k] <= lowest[k] + 1e-9 for k in range(len(ROLES))):
+                slack.add(snf)
+        cached = (s, rows, demand, slack)
+        _CACHE.clear()
+        _CACHE[key] = cached
+    return cached[1], cached[2]
+
+
+def never_short(s, snf):
+    _prepared(s)
+    return snf in _CACHE[id(s)][3]
+
+
 def supply(s, snf, hour):
+    rows, _ = _prepared(s)
     phase = hour % 24
-    row = next(r for r in s.staffing["shifts"] if r["snf_id"] == snf and r["start_hour"] <= phase < r["end_hour"])
+    row = next(r for r in rows.get(snf, ()) if r["start_hour"] <= phase < r["end_hour"])
     return {role: row["direct_care_hours"][role] / (row["end_hour"] - row["start_hour"]) for role in ROLES}
 
 
 def segments(s, snf, start, end, plan):
+    """Yield (left, right, available, used) for each constant piece of [start, end).
+
+    Same pieces and values as a direct recomputation, but bookings are swept once
+    instead of being re-summed for every piece.
+    """
+    rows, demand = _prepared(s)
+    snf_rows = rows.get(snf, ())
     boundaries = {start, end}
-    for day in range(math.floor(start / 24), math.floor(end / 24) + 1):
-        for row in s.staffing["shifts"]:
-            if row["snf_id"] == snf:
-                boundaries.update(t for t in (day * 24 + row["start_hour"], day * 24 + row["end_hour"]) if start < t < end)
+    if len(snf_rows) > 1:  # a single 0–24 shift has the same supply every hour: no daily cut points needed
+        for day in range(math.floor(start / 24), math.floor(end / 24) + 1):
+            for row in snf_rows:
+                for t in (day * 24 + row["start_hour"], day * 24 + row["end_hour"]):
+                    if start < t < end:
+                        boundaries.add(t)
     relevant = [(i, b) for i, b in plan.items() if s.beds[b.bed].snf_id == snf and b.start < end and start < b.end]
     for _, b in relevant:
-        boundaries.update(t for t in (b.start, b.end) if start < t < end)
+        if start < b.start < end:
+            boundaries.add(b.start)
+        if start < b.end < end:
+            boundaries.add(b.end)
     points = sorted(boundaries)
     for left, right in zip(points, points[1:]):
         mid = (left + right) / 2
-        used = {role: sum(dict(s.patients[i].care_hours_per_day)[role] / 24 for i, b in relevant if b.start <= mid < b.end) for role in ROLES}
-        yield left, right, supply(s, snf, mid), used
+        active = [demand[i] for i, b in relevant if b.start <= mid < b.end]
+        used = {role: sum(d[k] for d in active) for k, role in enumerate(ROLES)}
+        phase = mid % 24
+        row = next(r for r in snf_rows if r["start_hour"] <= phase < r["end_hour"])
+        width = row["end_hour"] - row["start_hour"]
+        yield left, right, {role: row["direct_care_hours"][role] / width for role in ROLES}, used
 
 
 def violation(s, patient, bed, start, plan):
-    if not s.staffing:
+    if not s.staffing or never_short(s, s.beds[bed].snf_id):
         return None
     demand = dict(patient.care_hours_per_day)
+    need = {r: demand[r] / 24 for r in ROLES}
     end = round(start + patient.length_of_stay_hours, 9)
     for left, right, available, used in segments(s, s.beds[bed].snf_id, start, end, plan):
-        if any(used[r] + demand[r] / 24 > available[r] + 1e-9 for r in ROLES):
+        if any(used[r] + need[r] > available[r] + 1e-9 for r in ROLES):
             return right
     return None
 
@@ -91,7 +144,7 @@ def violation(s, patient, bed, start, plan):
 def earliest(s, patient, bed, intervals, plan, now=0):
     from dynamic_model import _gap
     start = max(now, patient.ready_hour)
-    if not s.staffing:
+    if not s.staffing or never_short(s, s.beds[bed].snf_id):
         return _gap(patient, intervals, start)
     # After the last booking, every daily phase has been considered within 24h.
     limit = max([start, *(b.end for b in plan.values()), *(right for _, right in intervals)]) + 24

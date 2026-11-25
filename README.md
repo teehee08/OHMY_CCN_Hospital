@@ -653,6 +653,28 @@ staffing, LOS, and distance fields remain suitable inputs for testing capacity
 pressure and strategy behavior, but the missing timestamps and bed-time series
 prevent a calibrated historical claim.
 
+## Brooklyn runnable real-data dataset
+
+`dynamic_scenarios.nyc_scenario(days=7, referrals=6, seed=2026)` builds on the 12-day reconstruction above and keeps its hospitals, SNFs, corrected vacant beds, PBJ staff roster, hospital occupancy and 2024 daily referral counts. It adds:
+
+- Patient sex, age, APR severity and primary payer drawn from each hospital's 2024 SNF-discharge mix (`SNF_Patient_Mix`). Severity sets clinical risk (Extreme high, Major medium) and scales care hours by 0.85–1.25.
+- Individual SNF stays drawn log-normally around the Brooklyn census-weighted Medicare mean (7–100 days).
+- Homes scattered about 2 km around the discharging hospital; each patient is referred to the `referrals` nearest SNFs that have the required bed type (about 1% ventilator, 3% dialysis).
+- `days` from 1 to 12. The 5-day version is listed in the dynamic lab examples.
+
+Exported scenarios: `nyc_data/brooklyn_real_5day.json` (275 patients, about 1 minute with staffing and urgency) and `nyc_data/brooklyn_real_7day.json` (385 patients, about 3 minutes).
+
+Offline parameters: `python nyc_data/offline_parameters.py --days 5` runs the comparison and writes per-SNF daily admissions, discharges, free beds and RN/LPN/CNA utilisation for the offline (full-information) CCN plan and the baseline (`nyc_data/brooklyn_offline_5day.xlsx`, `nyc_data/brooklyn_offline_7day.xlsx`).
+
+| Window | Mean wait, baseline → offline CCN | Patients waiting | Rejected requests |
+| --- | ---: | ---: | ---: |
+| 5 days | 25.0 → 5.8 h | 29 → 9 | 57 → 0 |
+| 7 days | 50.7 → 22.6 h | 56 → 29 | 94 → 0 |
+
+Staffing checks are faster without changing any result: a single 0–24 shift no longer splits stays at midnight, shift rows and per-patient demand are indexed once per scenario, and SNFs whose lowest hourly supply covers every bed filled by the most demanding patient skip the check (39 of 40 Brooklyn SNFs). Placements on the staffing pressure cases are identical before and after.
+
+Limits: beds released by existing residents are not modelled, so longer windows overstate waiting; staff supply is the whole-facility roster; referral breadth and ventilator/dialysis shares are assumptions.
+
 ## Optional NYC road-data preparation
 
 The road-data scripts prepare inputs for future hospital-to-SNF travel-time calculations:
