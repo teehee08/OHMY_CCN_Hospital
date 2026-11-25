@@ -359,11 +359,109 @@ def _nyc_scenario() -> dict:
     }
 
 
+SEVERITY_RISK = {"Extreme": "high", "Major": "medium", "Moderate": "low", "Minor": "low"}
+SEVERITY_CARE = {"Extreme": 1.25, "Major": 1.05, "Moderate": 0.95, "Minor": 0.85}
+AGE_RANGES = {"0-17": (18, 18), "18-29": (18, 29), "30-49": (30, 49), "50-69": (50, 69), "70 or Older": (70, 98)}
+PAYERS = {"Medicare": "Medicare", "Medicaid": "Medicaid"}
+
+
+def _weighted(rng: random.Random, counts: dict[str, float]) -> str:
+    items = [(value, weight) for value, weight in counts.items() if weight > 0]
+    pick = rng.random() * sum(weight for _, weight in items)
+    for value, weight in items:
+        pick -= weight
+        if pick < 0:
+            return value
+    return items[-1][0]
+
+
+def nyc_scenario(days: int = 7, referrals: int = 6, seed: int = 2026) -> dict:
+    """Runnable Brooklyn scenario built on the 12-day reconstruction.
+
+    Keeps the reconstruction's hospitals, SNFs, corrected vacant beds, PBJ staff
+    roster, hospital occupancy and 2024 daily referral counts, and adds:
+    patient attributes drawn from each hospital's 2024 SNF-discharge mix
+    (sex, age, APR severity -> clinical risk and care hours, payer), individual
+    SNF stays drawn around the Brooklyn Medicare mean, homes scattered around
+    the discharging hospital, and referral to the nearest ``referrals`` SNFs
+    that can serve the patient. All draws are seeded and reproducible.
+    """
+    if not 1 <= days <= 12 or not 1 <= referrals <= 40:
+        raise ValueError("days must be 1-12 and referrals 1-40")
+    base = _nyc_scenario()
+    from openpyxl import load_workbook
+    workbook = load_workbook(Path(__file__).parent / "nyc_data" / "Brooklyn_Hospital_SNF_Data.xlsx",
+                             read_only=True, data_only=True)
+    _, mix_rows = _sheet_rows(workbook, "SNF_Patient_Mix")
+    _, snf_rows = _sheet_rows(workbook, "SNFs")
+    snf_headers, _ = _sheet_rows(workbook, "SNFs")
+    workbook.close()
+    mix: dict[tuple[str, str], dict[str, float]] = {}
+    for attribute, pfi, _, value, count in mix_rows:
+        if pfi and value is not None and isinstance(count, (int, float)):
+            mix.setdefault((str(pfi), str(attribute)), {})[str(value)] = float(count)
+    column = {name: index for index, name in enumerate(snf_headers)}
+    stays, residents = 0.0, 0.0
+    for row in snf_rows:
+        if row[column["CCN"]] in (None, "TOTAL") or not row[column["Avg residents/day"]]:
+            continue
+        stays += float(row[column["Avg Medicare LOS (days)"]] or 0) * float(row[column["Avg residents/day"]])
+        residents += float(row[column["Avg residents/day"]])
+    mean_los = stays / residents if residents else 41.0
+
+    rng = random.Random(seed)
+    snf_xy = {snf["id"]: (snf["x_km"], snf["y_km"]) for snf in base["snfs"]}
+    capabilities: dict[str, set[str]] = {}
+    for bed in base["beds"]:
+        capabilities.setdefault(bed["snf_id"], set()).update(bed["capabilities"])
+    average_care = base["patients"][0]["care_hours_per_day"]
+    patients = []
+    for patient in base["patients"]:
+        if patient["ready_hour"] >= days * 24:
+            continue
+        pfi = patient["hospital_id"]
+        hospital = next(row for row in base["hospitals"] if row["id"] == pfi)
+        severity = _weighted(rng, mix.get((pfi, "APR severity"), {"Major": 1}))
+        sex = _weighted(rng, mix.get((pfi, "Sex"), {"F": 1, "M": 1}))
+        low, high = AGE_RANGES.get(_weighted(rng, mix.get((pfi, "Age group"), {"70 or Older": 1})), (70, 98))
+        payer = PAYERS.get(_weighted(rng, mix.get((pfi, "Primary payer"), {"Medicare": 1})), "Commercial")
+        need = rng.random()
+        required = ["ventilator"] if need < 0.01 else ["dialysis"] if need < 0.04 else []
+        home = (round(hospital["x_km"] + rng.gauss(0, 2.0), 3), round(hospital["y_km"] + rng.gauss(0, 2.0), 3))
+        candidates = [snf for snf, caps in capabilities.items() if set(required) <= caps]
+        candidates.sort(key=lambda snf: math.dist(home, snf_xy[snf]))
+        stay_days = min(100.0, max(7.0, rng.lognormvariate(math.log(mean_los) - 0.32, 0.8)))
+        factor = SEVERITY_CARE[severity]
+        patients.append({**patient,
+                         "gender": "female" if sex == "F" else "male" if sex == "M" else rng.choice(("female", "male")),
+                         "age": rng.randint(low, high),
+                         "clinical_risk": SEVERITY_RISK[severity],
+                         "insurance_type": payer,
+                         "required_capabilities": required,
+                         "length_of_stay_hours": round(stay_days * 24, 3),
+                         "care_hours_per_day": {role: round(hours * factor, 6) for role, hours in average_care.items()},
+                         "eligible_snf_ids": candidates[:referrals],
+                         "home_x_km": home[0], "home_y_km": home[1]})
+    base["patients"] = patients
+    base["arrival_span_hours"] = days * 24
+    base["horizon_hours"] = days * 24
+    base["name"] = f"Brooklyn real data · {days} days · {len(patients)} patients · referrals {referrals}"
+    base["urgency"] = {"distance_weight_hours": 6.0, "max_distance_km": 30.0}
+    base["data_notes"] = dict(base["data_notes"],
+        simulation_window=f"{days} reconstructed days at the 2024 annual-average SNF referral rate (55/day).",
+        patient_mix="Sex, age group, APR severity and primary payer drawn from each hospital's 2024 SNF-discharge mix (SPARCS). Severity sets clinical risk (Extreme high, Major medium) and scales care hours by 0.85-1.25.",
+        snf_los=f"Individual SNF stays drawn log-normally around the Brooklyn census-weighted Medicare mean ({mean_los:.1f} days), 7-100 days.",
+        referrals=f"Each patient is referred to the {referrals} nearest SNFs (from a home scattered ~2 km around the hospital) that have the required bed type.",
+        special_needs="About 1% need a ventilator bed and 3% dialysis (assumption).",
+        seed=seed)
+    return base
+
+
 def examples() -> dict:
     legacy = json.loads((Path(__file__).parent / "scenarios" / "dynamic_examples.json").read_text(encoding="utf-8"))["scenarios"][0]
     legacy["baseline_policy"] = "fcfs"
     legacy["name"] = "Legacy FIFO reference · 5 patients"
     return {"scenarios": [generate(), generate({"patient_count": 240, "hospital_count": 8,
                                                "snf_count": 12, "bed_count": 72,
-                                               "horizon_hours": 336, "seed": 84}), legacy, _nyc_scenario()],
+                                               "horizon_hours": 336, "seed": 84}), legacy, _nyc_scenario(), nyc_scenario(days=5)],
             "limits": dict(LIMITS)}

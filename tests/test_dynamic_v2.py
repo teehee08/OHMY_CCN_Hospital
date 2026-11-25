@@ -337,9 +337,9 @@ class GeneratedDynamicScenarioTests(unittest.TestCase):
     def test_generator_rejects_bad_counts_seed_and_inconsistent_empty_facilities(self):
         from dynamic_scenarios import generate
 
-        invalid = [None, [], {"unknown": 1}, {"patient_count": -1}, {"patient_count": 501},
+        invalid = [None, [], {"unknown": 1}, {"patient_count": -1}, {"patient_count": 1001},
                    {"patient_count": True}, {"patient_count": 2.5}, {"hospital_count": 41},
-                   {"snf_count": 41}, {"bed_count": 501}, {"bed_count": "2"},
+                   {"snf_count": 41}, {"bed_count": 601}, {"bed_count": "2"},
                    {"horizon_hours": 0}, {"horizon_hours": float("inf")},
                    {"seed": -1}, {"seed": 2 ** 32}, {"seed": True}, {"seed": 1.5},
                    {"patient_count": 1, "hospital_count": 0}, {"snf_count": 0, "bed_count": 1}]
